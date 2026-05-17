@@ -1,6 +1,6 @@
 {
-  "name": "AI Unreal Game Architect",
-  "description": "Uma plataforma de desenvolvimento de jogos impulsionada por IA para Unreal Engine, permitindo controle total do motor via comandos de voz e texto.",
+  "name": "PaperCreeper AI: Unreal Architect",
+  "description": "Plataforma de Engenharia Suprema baseada no Ecossistema V9, automatizando o desenvolvimento na Unreal Engine 5 com Script Factory e Diagnóstico Omni.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
