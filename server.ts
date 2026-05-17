@@ -116,7 +116,7 @@ async function startServer() {
   }`;
 
   // [SYSTEM_HEALTH]: Verificação de integridade da IA
-  app.get("/api/health/ai", async (req, res, next) => {
+  app.get("/api/health/ai", async (req, res) => {
     try {
       const stats = {
         uptime: process.uptime(),
@@ -133,8 +133,13 @@ async function startServer() {
         stats,
         engine: "Architect Core (Gemini 3 Flash)"
       });
-    } catch (error) {
-      next(error);
+    } catch (error: any) {
+      if (error?.status === 429 || error?.code === 429) {
+        res.status(429).json({ status: "limited", message: "Quota exhausted" });
+      } else {
+        console.error("AI_HEALTH_CHECK_ERROR:", error);
+        res.status(500).json({ status: "error", message: "Internal server error" });
+      }
     }
   });
 
@@ -156,7 +161,7 @@ async function startServer() {
   });
 
   // API to translate natural language to Unreal Engine Remote Control commands
-  app.post("/api/ai/command", async (req, res, next) => {
+  app.post("/api/ai/command", async (req, res) => {
     const { prompt, currentContext } = req.body;
 
     if (!prompt || typeof prompt !== 'string') {
@@ -187,7 +192,12 @@ async function startServer() {
 
       res.json(JSON.parse(responseText));
     } catch (error: any) {
-      next(error);
+      if (error?.status === 429 || error?.code === 429) {
+        res.status(429).json({ status: "limited", message: "Quota exhausted. Try again later." });
+      } else {
+        console.error("AI_COMMAND_ERROR:", error);
+        res.status(500).json({ status: "error", message: "Internal server error" });
+      }
     }
   });
 

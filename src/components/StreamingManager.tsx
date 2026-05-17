@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
-import { Box, Map, Navigation, Trash2, Plus, Zap, AlertCircle, Eye, EyeOff, Radio } from 'lucide-react';
+import { Box, Map, Navigation, Trash2, Plus, Zap, AlertCircle, Eye, EyeOff, Radio, Target } from 'lucide-react';
 import axios from 'axios';
 import { UEConnection } from '../types';
 
@@ -22,6 +22,7 @@ interface StreamingManagerProps {
   assets: StreamingAsset[];
   setAssets: React.Dispatch<React.SetStateAction<StreamingAsset[]>>;
   addLog: (type: 'ai' | 'ue' | 'error', message: string, data?: any) => void;
+  camera: { pos: { x: number; y: number; z: number }; rot: { r: number; p: number; y: number }; fov: number };
 }
 
 export const StreamingManager: React.FC<StreamingManagerProps> = ({ 
@@ -29,10 +30,22 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
   connection, 
   assets, 
   setAssets,
-  addLog 
+  addLog,
+  camera
 }) => {
   const [autoStreaming, setAutoStreaming] = useState(true);
+  const [useFrustumCulling, setUseFrustumCulling] = useState(true);
   const lastUpdateRef = useRef<number>(0);
+
+  const getForwardVector = (rot: { r: number; p: number; y: number }) => {
+    const pitch = rot.p * (Math.PI / 180);
+    const yaw = rot.y * (Math.PI / 180);
+    return {
+      x: Math.cos(pitch) * Math.cos(yaw),
+      y: Math.cos(pitch) * Math.sin(yaw),
+      z: Math.sin(pitch)
+    };
+  };
 
   const sendUECommand = async (asset: StreamingAsset, shouldLoad: boolean) => {
     if (!connection.connected) return;
@@ -61,6 +74,7 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
     lastUpdateRef.current = now;
 
     const computeStreaming = async () => {
+      const forward = getForwardVector(camera.rot);
       const updatedAssets = assets.map(asset => {
         const dist = Math.sqrt(
           Math.pow(asset.pos.x - playerLocation.x, 2) +
@@ -72,8 +86,19 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
           return { ...asset, distance: dist };
         }
 
+        let isInFrustum = true;
+        if (useFrustumCulling) {
+          const toAsset = { x: asset.pos.x - camera.pos.x, y: asset.pos.y - camera.pos.y, z: asset.pos.z - camera.pos.z };
+          const distToCam = Math.sqrt(Math.pow(toAsset.x, 2) + Math.pow(toAsset.y, 2) + Math.pow(toAsset.z, 2));
+          if (distToCam > 0) {
+            const dot = (toAsset.x * forward.x + toAsset.y * forward.y + toAsset.z * forward.z) / distToCam;
+            const angle = Math.acos(Math.max(-1, Math.min(1, dot))) * (180 / Math.PI);
+            isInFrustum = angle < (camera.fov / 2);
+          }
+        }
+
         let newStatus: 'LOADED' | 'UNLOADED' | 'LOD_ONLY' = asset.status;
-        if (dist > asset.loadRadius * 1.5) newStatus = 'UNLOADED';
+        if ((dist > asset.loadRadius * 1.5) || (useFrustumCulling && !isInFrustum && dist > asset.loadRadius * 0.5)) newStatus = 'UNLOADED';
         else if (dist > asset.loadRadius) newStatus = 'LOD_ONLY';
         else newStatus = 'LOADED';
 
@@ -92,7 +117,7 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
     };
 
     computeStreaming();
-  }, [playerLocation, autoStreaming]);
+  }, [playerLocation, autoStreaming, useFrustumCulling, camera]);
 
   return (
     <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-[#050505]">
@@ -121,6 +146,17 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
             >
               <Radio className={`w-4 h-4 ${autoStreaming ? "animate-pulse" : ""}`} />
               {autoStreaming ? "Auto-Streaming Active" : "Streamer Paused"}
+            </button>
+             <button 
+              onClick={() => setUseFrustumCulling(!useFrustumCulling)}
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl border font-black text-[10px] uppercase tracking-widest transition-all ${
+                useFrustumCulling 
+                ? "bg-purple-500/10 border-purple-500/50 text-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.3)]" 
+                : "bg-[#29292E] border-transparent text-[#4D4D57]"
+              }`}
+            >
+              <Target className="w-4 h-4" />
+              {useFrustumCulling ? "Frustum Culling ON" : "Frustum Culling OFF"}
             </button>
           </div>
         </header>

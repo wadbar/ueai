@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Database, Layers, Target, RefreshCcw, Box } from 'lucide-react';
 import { Actor } from '../types';
 
@@ -10,6 +10,20 @@ interface SceneInspectorProps {
 export const SceneInspector: React.FC<SceneInspectorProps> = ({ onRefresh, actors }) => {
   const [selectedActor, setSelectedActor] = useState<Actor | null>(actors[0] || null);
 
+  useEffect(() => {
+    if (actors.length > 0 && !selectedActor) {
+      setSelectedActor(actors[0]);
+    }
+  }, [actors, selectedActor]);
+
+  const handleRefresh = () => {
+    try {
+      onRefresh();
+    } catch (error) {
+      console.error('UNCAUGHT_EXCEPTION in SceneInspector.refresh:', error);
+    }
+  };
+
   return (
     <div className="flex flex-1 overflow-hidden h-full">
       {/* Actor List */}
@@ -19,7 +33,7 @@ export const SceneInspector: React.FC<SceneInspectorProps> = ({ onRefresh, actor
             <Layers className="w-4 h-4 text-blue-500" />
             Scene Actors
           </h3>
-          <button onClick={onRefresh} className="p-1 hover:bg-white/5 rounded">
+          <button onClick={handleRefresh} className="p-1 hover:bg-white/5 rounded">
             <RefreshCcw className="w-3 h-3 text-[#4D4D57]" />
           </button>
         </div>

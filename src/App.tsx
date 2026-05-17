@@ -1223,6 +1223,7 @@ export default function App() {
               assets={streamingAssets}
               setAssets={setStreamingAssets}
               addLog={addLog}
+              camera={cameras.find(c => c.active) || cameras[0]}
             />
           ) : activeTab === 'animations' ? (
             <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-[#050505]">
