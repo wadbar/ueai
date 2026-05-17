@@ -40,7 +40,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import axios from 'axios';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { UECommand, AIResponse, LogEntry, UEConnection } from './types';
+import { ScriptFactory } from './components/ScriptFactory';
+import { TelemetryView } from './components/TelemetryView';
+import { AuditTerminal } from './components/AuditTerminal';
+import { StreamingManager } from './components/StreamingManager';
+import { SceneInspector } from './components/SceneInspector';
+import { CognitiveEngine } from './components/CognitiveEngine';
+import { io } from 'socket.io-client';
+import { UECommand, AIResponse, LogEntry, UEConnection, Actor } from './types';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -73,7 +80,9 @@ export default function App() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [currentAIResponse, setCurrentAIResponse] = useState<AIResponse | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [activeTab, setActiveTab] = useState<'console' | 'factory' | 'system' | 'streaming' | 'materials' | 'animations' | 'cinematics' | 'lod'>('console');
+  const [activeTab, setActiveTab] = useState<'console' | 'factory' | 'system' | 'streaming' | 'materials' | 'animations' | 'cinematics' | 'lod' | 'audit' | 'cognitive' | 'inspector'>('console');
+  const [inspectorActors, setInspectorActors] = useState<Actor[]>([]);
+  const [playerLocation, setPlayerLocation] = useState({ x: 0, y: 0, z: 0 });
   const [materials, setMaterials] = useState<any[]>([
     { id: 'M_Cyberpunk_Metal', baseColor: '#9462E1', metallic: 0.9, roughness: 0.1, emissive: '#4D21B2', status: 'SYNCHRONIZED', textures: { albedo: '', normal: '', metallic: '', roughness: '' } },
     { id: 'M_Industrial_Concrete', baseColor: '#323238', metallic: 0.0, roughness: 0.8, emissive: '#000000', status: 'SYNCHRONIZED', textures: { albedo: '', normal: '', metallic: '', roughness: '' } }
@@ -85,12 +94,16 @@ export default function App() {
   const [cameras, setCameras] = useState<any[]>([
     { id: 'Main_CineCam', pos: { x: 0, y: -500, z: 150 }, rot: { r: 0, p: 0, y: 90 }, fov: 60, active: true }
   ]);
-  const [streamingAssets, setStreamingAssets] = useState<any[]>([
-    { id: 'SM_Citadel_Gate', type: 'LevelInstance', pos: { x: 5000, y: 0, z: 0 }, status: 'LOADED', size: '245MB' },
-    { id: 'SM_Terrain_Sector_A1', type: 'WorldPartition', pos: { x: -2000, y: 500, z: 0 }, status: 'LOADED', size: '1.2GB' },
-    { id: 'SM_Detail_Props_04', type: 'StaticMesh', pos: { x: 15000, y: 15000, z: 0 }, status: 'UNLOADED', size: '45MB' },
-    { id: 'SM_Skybox_HighRes', type: 'StaticMesh', pos: { x: 0, y: 0, z: 100000 }, status: 'LOD_ONLY', size: '12MB' }
-  ]);
+  const [streamingAssets, setStreamingAssets] = useState<any[]>(() => {
+    const saved = localStorage.getItem('ue_streaming_assets_v4');
+    if (saved) return JSON.parse(saved);
+    return [
+      { id: 'SM_Citadel_Gate', type: 'LevelInstance', pos: { x: 5000, y: 0, z: 0 }, status: 'LOADED', size: '245MB', path: '/Game/Environment/Meshes/SM_Citadel_Gate', loadRadius: 8000 },
+      { id: 'SM_Terrain_Sector_A1', type: 'WorldPartition', pos: { x: -2000, y: 500, z: 0 }, status: 'LOADED', size: '1.2GB', path: '/Game/Environment/Meshes/SM_Terrain_Sector_A1', loadRadius: 10000 },
+      { id: 'SM_Detail_Props_04', type: 'StaticMesh', pos: { x: 15000, y: 15000, z: 0 }, status: 'UNLOADED', size: '45MB', path: '/Game/Environment/Meshes/SM_Detail_Props_04', loadRadius: 2000 },
+      { id: 'SM_Skybox_HighRes', type: 'StaticMesh', pos: { x: 0, y: 0, z: 100000 }, status: 'LOD_ONLY', size: '12MB', path: '/Game/Environment/Meshes/SM_Skybox_HighRes', loadRadius: 50000 }
+    ];
+  });
   const [cameraPos, setCameraPos] = useState({ x: 0, y: 0, z: 0 });
   const [streamingThreshold, setStreamingThreshold] = useState(10000);
 
@@ -167,6 +180,16 @@ export default function App() {
     timestamp: number;
   }
 
+  useEffect(() => {
+    const socket = io(window.location.origin);
+    socket.on("player_update", (data: { x: number, y: number, z: number }) => {
+      setPlayerLocation(data);
+    });
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
   const [commandHistory, setCommandHistory] = useState<SavedCommand[]>(() => {
     const saved = localStorage.getItem('ue_command_history_v2');
     return saved ? JSON.parse(saved) : [];
@@ -192,6 +215,10 @@ export default function App() {
 
   const togglePin = (id: string) => {
     setCommandHistory(prev => prev.map(c => c.id === id ? { ...c, pinned: !c.pinned } : c));
+  };
+
+  const updateCategory = (id: string, category: string) => {
+    setCommandHistory(prev => prev.map(c => c.id === id ? { ...c, category } : c));
   };
 
   const deleteCommand = (id: string) => {
@@ -233,6 +260,10 @@ export default function App() {
       clearInterval(interval);
     };
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('ue_streaming_assets_v4', JSON.stringify(streamingAssets));
+  }, [streamingAssets]);
 
   useEffect(() => {
     localStorage.setItem('ue_command_history_v2', JSON.stringify(commandHistory));
@@ -612,18 +643,18 @@ export default function App() {
       {/* Header */}
       <header className="border-b border-[#202024] bg-[#121214] px-6 py-4 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-[#9462E1] to-[#633BBC] rounded-xl flex items-center justify-center shadow-lg shadow-[#9462E1]/20">
-            <Gamepad2 className="text-white w-6 h-6" />
+          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <Zap className="text-white w-6 h-6" />
           </div>
           <div>
-            <h1 className="font-bold text-lg tracking-tight">UE AI Architect</h1>
+            <h1 className="font-bold text-lg tracking-tight">Nebula Architect</h1>
             <div className="flex items-center gap-2">
               <span className={cn(
                 "w-2 h-2 rounded-full transition-all duration-500",
-                connection.connected ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"
+                connection.connected ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]"
               )} />
               <p className="text-xs text-[#8D8D99] font-medium">
-                {connection.connected ? `Engine: ${connection.port}` : "Link Offline"}
+                {connection.connected ? `Engine_V12: ${connection.port}` : "Link Offline"}
               </p>
               <div className="w-px h-3 bg-[#323238] mx-1" />
               <div className="flex items-center gap-1.5 overflow-hidden">
@@ -633,11 +664,9 @@ export default function App() {
                  )}>
                    AI: {systemHealth.status}
                  </span>
-                 {isStandalone && (
-                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-tighter bg-blue-500/10 text-blue-500">
-                     DESKTOP_MODE
-                   </span>
-                 )}
+                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/5 text-[#4D4D57] uppercase tracking-tighter">
+                   MEM: {((systemHealth.memory?.rss || 0) / 1024 / 1024).toFixed(0)}MB
+                 </span>
               </div>
             </div>
           </div>
@@ -645,6 +674,24 @@ export default function App() {
 
         <div className="flex items-center gap-4">
           <div className="bg-[#202024] p-1 rounded-lg flex items-center gap-1">
+            <button 
+              onClick={() => setActiveTab('cognitive')}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
+                activeTab === 'cognitive' ? "bg-purple-600 text-white shadow-lg shadow-purple-500/20" : "text-[#4D4D57] hover:text-white"
+              )}
+            >
+              COGNITIVE CORE
+            </button>
+            <button 
+              onClick={() => setActiveTab('inspector')}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
+                activeTab === 'inspector' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "text-[#4D4D57] hover:text-white"
+              )}
+            >
+              INSPECTOR
+            </button>
             <button 
               onClick={() => setActiveTab('console')}
               className={cn(
@@ -717,6 +764,15 @@ export default function App() {
             >
               LOD MANAGER
             </button>
+            <button 
+              onClick={() => setActiveTab('audit')}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
+                activeTab === 'audit' ? "bg-blue-500 text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
+              )}
+            >
+              AUDIT LOG
+            </button>
           </div>
           <div className="h-6 w-px bg-[#202024]" />
           <button 
@@ -784,6 +840,19 @@ export default function App() {
                 </div>
               )}
             </div>
+          ) : activeTab === 'factory' ? (
+            <ScriptFactory 
+              currentAIResponse={currentAIResponse}
+              commandHistory={commandHistory}
+              activeCategory={activeCategory}
+              setActiveCategory={setActiveCategory}
+              togglePin={togglePin}
+              updateCategory={updateCategory}
+              deleteCommand={deleteCommand}
+              setPrompt={setPrompt}
+            />
+          ) : activeTab === 'system' ? (
+            <TelemetryView />
           ) : activeTab === 'materials' ? (
             <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-[#050505]">
               <div className="max-w-5xl mx-auto space-y-12">
@@ -942,7 +1011,7 @@ export default function App() {
                                             </button>
                                             <button 
                                                 onClick={() => {
-                                                    const path = prompt(`Digite o Asset Path da textura (${type}):`, '/Game/Textures/');
+                                                    const path = window.prompt(`Digite o Asset Path da textura (${type}):`, '/Game/Textures/');
                                                     if (path) setEditingProps(prev => ({ 
                                                         ...prev, 
                                                         textures: { ...prev.textures, [type]: path } 
@@ -1148,116 +1217,13 @@ export default function App() {
               </div>
             </div>
           ) : activeTab === 'streaming' ? (
-            <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-[#050505]">
-              <div className="max-w-4xl mx-auto space-y-12">
-                <header className="space-y-2">
-                  <div className="flex items-center gap-2 text-blue-500 font-bold text-xs uppercase tracking-[0.2em]">
-                    <Layers className="w-4 h-4" />
-                    <span>Dynamic Proximity Management</span>
-                  </div>
-                  <h2 className="text-3xl font-bold text-white tracking-tight leading-tight">Asset Streamer</h2>
-                  <p className="text-[#8D8D99]">Monitoramento e controle de carga assíncrona de recursos baseado em distância.</p>
-                </header>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <div className="bg-[#0A0A0B] border border-[#29292E] rounded-3xl p-8 space-y-6">
-                    <h3 className="text-lg font-bold text-white flex items-center gap-3">
-                      <Cpu className="w-5 h-5 text-blue-400" />
-                      Coordenadas de Referência (UE5)
-                    </h3>
-                    <div className="grid grid-cols-3 gap-4">
-                        {['X', 'Y', 'Z'].map((axis) => (
-                          <div key={axis} className="bg-[#121214] border border-[#29292E] p-4 rounded-xl space-y-1">
-                            <span className="text-[10px] text-[#4D4D57] font-bold">{axis}_AXIS</span>
-                            <input 
-                              type="number" 
-                              value={(cameraPos as any)[axis.toLowerCase()]}
-                              onChange={(e) => setCameraPos(prev => ({...prev, [axis.toLowerCase()]: parseInt(e.target.value)}))}
-                              className="w-full bg-transparent text-white font-mono text-lg focus:outline-none"
-                            />
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-
-                  <div className="bg-[#0A0A0B] border border-[#29292E] rounded-3xl p-8 space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-bold text-white flex items-center gap-3">
-                        <Zap className="w-5 h-5 text-amber-500" />
-                        Políticas de Otimização
-                      </h3>
-                      <button 
-                        onClick={syncStreamingState}
-                        className="px-3 py-1 bg-blue-500 text-black text-[10px] font-black rounded uppercase hover:bg-blue-400 transition-colors"
-                      >
-                        SYNC_STREAMING
-                      </button>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-[10px] text-[#8D8D99] font-bold uppercase">
-                          <span>Distância de Corte (u)</span>
-                          <span className="text-white">{streamingThreshold}</span>
-                        </div>
-                        <input 
-                          type="range" 
-                          min="1000" max="50000" step="1000"
-                          value={streamingThreshold}
-                          onChange={(e) => setStreamingThreshold(parseInt(e.target.value))}
-                          className="w-full accent-blue-500" 
-                        />
-                      </div>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5">
-                          <span className="text-xs text-[#E1E1E6]">Auto-Unload se d {'>'} limiar * 2</span>
-                          <div className="w-8 h-4 bg-emerald-500 rounded-full relative">
-                            <div className="absolute right-1 top-1 w-2 h-2 bg-white rounded-full" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                   <div className="flex items-center justify-between">
-                     <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest">Ativos Detectados na Cena</h3>
-                     <span className="text-[10px] text-blue-400 font-mono">POOL_SIZE: 128MB</span>
-                   </div>
-                   <div className="bg-[#121214] border border-[#29292E] rounded-2xl overflow-hidden">
-                      <table className="w-full text-left text-xs font-mono">
-                        <thead>
-                          <tr className="bg-[#1E1E21] text-[#7C7C8A]">
-                            <th className="p-4 border-b border-[#29292E]">ASSET_ID</th>
-                            <th className="p-4 border-b border-[#29292E]">TYPE</th>
-                            <th className="p-4 border-b border-[#29292E]">DISTANCE</th>
-                            <th className="p-4 border-b border-[#29292E]">STATUS</th>
-                          </tr>
-                        </thead>
-                        <tbody className="text-[#E1E1E6]">
-                          {streamingAssets.map((asset) => (
-                            <tr key={asset.id} className="border-b border-[#1E1E21] hover:bg-white/[0.02] transition-colors">
-                              <td className="p-4 font-bold">{asset.id}</td>
-                              <td className="p-4 text-blue-400">{asset.type}</td>
-                              <td className="p-4">{asset.distance || '?'}u</td>
-                              <td className="p-4">
-                                <span className={cn(
-                                  "px-2 py-0.5 rounded text-[9px] font-bold",
-                                  asset.status === 'LOADED' ? "bg-emerald-500/10 text-emerald-500" :
-                                  asset.status === 'LOD_ONLY' ? "bg-amber-500/10 text-amber-500" :
-                                  "bg-red-500/10 text-red-500"
-                                )}>
-                                  {asset.status}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                   </div>
-                </div>
-              </div>
-            </div>
+            <StreamingManager 
+              connection={connection} 
+              playerLocation={playerLocation} 
+              assets={streamingAssets}
+              setAssets={setStreamingAssets}
+              addLog={addLog}
+            />
           ) : activeTab === 'animations' ? (
             <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-[#050505]">
                <div className="max-w-4xl mx-auto space-y-12">
@@ -1340,228 +1306,29 @@ export default function App() {
                 </div>
               </div>
             </div>
-          ) : activeTab === 'system' ? (
-            <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-[#050505]">
-              <div className="max-w-4xl mx-auto space-y-12">
-                <header className="space-y-2">
-                  <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs uppercase tracking-[0.2em]">
-                    <Activity className="w-4 h-4" />
-                    <span>Architect Core Diagnostics</span>
-                  </div>
-                  <h2 className="text-3xl font-bold text-white tracking-tight leading-tight">Estado do Ecossistema</h2>
-                  <p className="text-[#8D8D99]">Monitoramento em tempo real do runtime e variáveis de ambiente (padrão PaperCreeper).</p>
-                </header>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {/* Health Card */}
-                  <div className="bg-[#121214] border border-[#29292E] p-6 rounded-2xl space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Cpu className="w-6 h-6 text-[#9462E1]" />
-                      <span className="text-[10px] font-bold text-[#4D4D57] uppercase tracking-widest">Processador IA</span>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-white font-bold">{systemHealth.engine || 'Carregando...'}</p>
-                      <p className="text-xs text-emerald-500 font-mono uppercase tracking-tighter">{systemHealth.status}</p>
-                    </div>
-                  </div>
-
-                  {/* Environment Card */}
-                  <div className="bg-[#121214] border border-[#29292E] p-6 rounded-2xl space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Database className="w-6 h-6 text-blue-500" />
-                      <span className="text-[10px] font-bold text-[#4D4D57] uppercase tracking-widest">Runtime Node</span>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-white font-bold">{envInfo?.node_version || 'v20.x'}</p>
-                      <p className="text-xs text-[#8D8D99] font-mono">{envInfo?.platform} ({envInfo?.arch})</p>
-                    </div>
-                  </div>
-
-                  {/* Uptime Card */}
-                  <div className="bg-[#121214] border border-[#29292E] p-6 rounded-2xl space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Zap className="w-6 h-6 text-amber-500" />
-                      <span className="text-[10px] font-bold text-[#4D4D57] uppercase tracking-widest">System Uptime</span>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-white font-bold">{Math.floor((systemHealth.uptime || 0) / 60)} Minutes</p>
-                      <p className="text-xs text-[#8D8D99] font-mono">Estabilidade: 99.9%</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <div className="bg-[#0A0A0B] border border-[#29292E] rounded-3xl p-8 space-y-6">
-                    <h3 className="text-lg font-bold text-white flex items-center gap-3">
-                      <Layers className="w-5 h-5 text-purple-500" />
-                      Distribuição de Memória
-                    </h3>
-                    <div className="space-y-4">
-                      {systemHealth.memory ? Object.entries(systemHealth.memory).map(([key, value]: any) => (
-                        <div key={key} className="space-y-2">
-                          <div className="flex justify-between text-xs font-mono">
-                            <span className="text-[#8D8D99] uppercase">{key}</span>
-                            <span className="text-white">{(value / 1024 / 1024).toFixed(2)} MB</span>
-                          </div>
-                          <div className="h-1 bg-[#121214] rounded-full overflow-hidden">
-                             <motion.div 
-                               initial={{ width: 0 }}
-                               animate={{ width: `${Math.min((value / 1024 / 1024 / 2), 100)}%` }}
-                               className="h-full bg-gradient-to-r from-[#9462E1] to-blue-500"
-                             />
-                          </div>
-                        </div>
-                      )) : (
-                        <p className="text-xs text-[#4D4D57] font-mono">Aguardando auditoria...</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="bg-[#0A0A0B] border border-[#29292E] rounded-3xl p-8 space-y-6">
-                    <h3 className="text-lg font-bold text-white flex items-center gap-3">
-                      <Settings className="w-5 h-5 text-gray-400" />
-                      Variáveis de Sistema
-                    </h3>
-                    <div className="space-y-4 font-mono text-sm text-[#8D8D99]">
-                      <div className="p-4 bg-black/40 rounded-xl border border-white/5 flex items-center justify-between">
-                        <span>API_KEY_STATE</span>
-                        <span className={cn(envInfo?.gemini_key_configured ? "text-emerald-500" : "text-red-500")}>
-                          {envInfo?.gemini_key_configured ? "DETECTED_AND_BOUND" : "MISSING"}
-                        </span>
-                      </div>
-                      <div className="p-4 bg-black/40 rounded-xl border border-white/5 flex items-center justify-between">
-                         <span>UNREAL_PORT</span>
-                         <span className="text-blue-400">{connection.port} (RC API)</span>
-                      </div>
-                      <div className="p-4 bg-black/40 rounded-xl border border-white/5 flex items-center justify-between">
-                         <span>SECURITY_LVL</span>
-                         <span className="text-amber-500 font-bold">CORE_ENCRYPTED</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+          ) : activeTab === 'audit' ? (
+            <AuditTerminal />
+          ) : activeTab === 'inspector' ? (
+            <SceneInspector 
+               actors={inspectorActors}
+               onRefresh={() => {
+                  addLog('ue', 'Solicitando atualização da cena...');
+                  // Placeholder for actual UE command to request actors
+                  executeCommands([{
+                     endpoint: '/remote/object/call',
+                     method: 'PUT',
+                     body: { objectPath: '/Script/Engine.Default__GameplayStatics', functionName: 'GetAllActorsOfClass', parameters: { ActorClass: '/Script/Engine.Actor'} }
+                  }]);
+               }}
+            />
+          ) : activeTab === 'cognitive' ? (
+            <CognitiveEngine />
           ) : (
-            <div className="flex-1 overflow-auto p-12 custom-scrollbar">
-              <div className="max-w-6xl mx-auto space-y-12">
-                <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-[#9462E1] font-bold text-xs uppercase tracking-[0.2em]">
-                      <Code2 className="w-4 h-4" />
-                      <span>Script Factory</span>
-                    </div>
-                    <h2 className="text-3xl font-bold text-white tracking-tight">Gerador de Código Industrial</h2>
-                    <p className="text-[#8D8D99]">Gere e gerencie suas sequências de automação.</p>
-                  </div>
-
-                  <div className="flex items-center gap-2 bg-[#121214] p-1 rounded-xl border border-[#29292E]">
-                    {['All', 'General', 'AI Generated', 'Materials', 'Camera'].map(cat => (
-                        <button 
-                          key={cat}
-                          onClick={() => setActiveCategory(cat)}
-                          className={cn(
-                            "px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all",
-                            activeCategory === cat ? "bg-[#9462E1] text-white" : "text-[#4D4D57] hover:text-[#8D8D99]"
-                          )}
-                        >
-                          {cat}
-                        </button>
-                    ))}
-                  </div>
-                </header>
-
-                <div className="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-8">
-                  <div className="space-y-8">
-                    {currentAIResponse ? (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="grid grid-cols-1 gap-8"
-                      >
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest">Logic Blueprint</span>
-                            <button className="text-[10px] text-[#9462E1] font-bold hover:underline">COPIAR NÓS</button>
-                          </div>
-                          <pre className="p-6 bg-[#0A0A0B] border border-[#29292E] rounded-2xl text-blue-300 font-mono text-sm overflow-x-auto leading-relaxed shadow-inner">
-                            {currentAIResponse.blueprintCode || "Nenhuma lógica Blueprint detectada para este comando."}
-                          </pre>
-                        </div>
-
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest">Header/Source C++</span>
-                            <button className="text-[10px] text-green-500 font-bold hover:underline">COPIAR SNIPPET</button>
-                          </div>
-                          <pre className="p-6 bg-[#0A0A0B] border border-[#29292E] rounded-2xl text-green-300 font-mono text-sm overflow-x-auto leading-relaxed shadow-inner">
-                            {currentAIResponse.cppCode || "Nenhum snippet C++ gerado para este nível de instrução."}
-                          </pre>
-                        </div>
-                      </motion.div>
-                    ) : (
-                      <div className="h-[400px] border-2 border-dashed border-[#202024] rounded-3xl flex flex-col items-center justify-center text-center p-8 space-y-4">
-                        <div className="p-4 bg-[#121214] rounded-2xl text-[#4D4D57]">
-                          <Database className="w-10 h-10" />
-                        </div>
-                        <div className="max-w-xs space-y-1">
-                          <p className="text-white font-bold">Nenhum Artefato Gerado</p>
-                          <p className="text-sm text-[#8D8D99]">Envie uma instrução no console para ver o código correspondente aqui.</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest">Biblioteca de Comandos</h3>
-                      <Filter className="w-3.5 h-3.5 text-[#4D4D57]" />
-                    </div>
-                    
-                    <div className="space-y-3 max-h-[600px] overflow-auto pr-2 custom-scrollbar">
-                      {commandHistory
-                        .filter(c => activeCategory === 'All' || c.category === activeCategory)
-                        .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0))
-                        .map(cmd => (
-                          <div key={cmd.id} className="group p-3 bg-[#121214] border border-[#29292E] rounded-xl hover:border-[#9462E1]/50 transition-all space-y-2">
-                             <div className="flex items-start justify-between gap-2">
-                                <button 
-                                  onClick={() => setPrompt(cmd.text)}
-                                  className="text-left text-xs text-[#E1E1E6] font-medium leading-tight hover:text-[#9462E1] transition-colors"
-                                >
-                                  {cmd.text}
-                                </button>
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                   <button 
-                                      onClick={() => togglePin(cmd.id)}
-                                      className={cn("p-1 rounded hover:bg-white/5", cmd.pinned ? "text-amber-500" : "text-[#4D4D57]")}
-                                   >
-                                      <Bookmark className="w-3.5 h-3.5" fill={cmd.pinned ? "currentColor" : "none"} />
-                                   </button>
-                                   <button 
-                                      onClick={() => deleteCommand(cmd.id)}
-                                      className="p-1 rounded hover:bg-red-500/10 text-[#4D4D57] hover:text-red-500"
-                                   >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                   </button>
-                                </div>
-                             </div>
-                             <div className="flex items-center justify-between text-[9px] font-bold">
-                                <span className="text-[#4D4D57] flex items-center gap-1">
-                                   <Tag className="w-2.5 h-2.5" />
-                                   {cmd.category?.toUpperCase()}
-                                </span>
-                                <span className="text-[#4D4D57]">{new Date(cmd.timestamp).toLocaleDateString()}</span>
-                             </div>
-                          </div>
-                        ))}
-                      {commandHistory.length === 0 && (
-                        <p className="text-[11px] text-[#4D4D57] text-center italic py-10">Nenhum comando salvo.</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <div className="flex-1 flex items-center justify-center bg-[#050505] text-[#4D4D57]">
+               <div className="text-center space-y-4">
+                  <Monitor className="w-12 h-12 mx-auto opacity-20" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.4em]">Módulo em Desenvolvimento ou Restrito</p>
+               </div>
             </div>
           )}
 

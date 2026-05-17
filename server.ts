@@ -5,75 +5,115 @@ import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import compression from "compression";
 import helmet from "helmet";
+import { rateLimit } from "express-rate-limit";
+import { createServer } from "http";
+import { Server } from "socket.io";
+import logger from "./src/lib/logger";
 
 dotenv.config();
 
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 100,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  validate: { trustProxy: false },
+  message: {
+    error: "RATE_LIMIT_EXCEEDED",
+    message: "Muitas requisições. O motor entrou em modo de resfriamento."
+  }
+});
+
 async function startServer() {
   const app = express();
+  app.set("trust proxy", 1);
+  const httpServer = createServer(app);
+  const io = new Server(httpServer, {
+    cors: { origin: "*" }
+  });
+
   const PORT = 3000;
 
   // [V9_CHROMIUM_OPTIMIZATION]: Camada de compressão e blindagem
   app.use(compression());
   app.use(helmet({
-    contentSecurityPolicy: false, // Desabilitado para permitir scripts da Unreal e Vite HMR
+    contentSecurityPolicy: false,
   }));
   app.use(express.json());
+  app.use("/api/", limiter);
 
-  // [ARCHITECT_TELEMETRY]: Middleware de auditoria de requisições
+  // [ARCHITECT_TELEMETRY]: Middleware de auditoria de requisições via Winston
   app.use((req, res, next) => {
     const start = Date.now();
     res.on('finish', () => {
       const duration = Date.now() - start;
+      const logMsg = `[HTTP_AUDIT] ${req.method} ${req.url} - ${res.statusCode} - ${duration}ms`;
+      
+      logger.info(logMsg);
+      io.emit("audit_log", {
+        timestamp: new Date().toISOString(),
+        level: 'info',
+        message: logMsg,
+        metadata: { method: req.method, url: req.url, status: res.statusCode }
+      });
+      
       if (duration > 500) {
-        console.warn(`[PERFORMANCE_LATENCY]: ${req.method} ${req.url} - ${duration}ms`);
+        const warnMsg = `[PERFORMANCE_LATENCY]: ${req.method} ${req.url} - ${duration}ms`;
+        logger.warn(warnMsg);
+        io.emit("audit_log", {
+          timestamp: new Date().toISOString(),
+          level: 'warn',
+          message: warnMsg,
+          metadata: { duration }
+        });
       }
     });
     next();
   });
 
+  // Socket.IO Telemetry Loop
+  setInterval(() => {
+    io.emit("system_stats", {
+      memory: process.memoryUsage(),
+      cpu: process.cpuUsage(),
+      uptime: process.uptime(),
+      timestamp: Date.now()
+    });
+  }, 2000);
+
   // AI Setup com tratamento robusto (SDK @google/genai)
   const ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY || ""
+    apiKey: process.env.GEMINI_API_KEY || "",
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      }
+    }
   });
 
-  const ARCHITECT_CORE_INSTRUCTION = `[SYSTEM_ARCHITECT_CORE]
-  Você é o Engenheiro de Software V12, focado em ARQUITETURA UNREAL ENGINE 5.
-  Sua lógica é puramente matemática e imutável.
+  const ARCHITECT_CORE_INSTRUCTION = `[ENGINE_COGNITIVA_V12.1_CORE]
+  Você é um motor de engenharia de software de altíssima performance. Sua lógica é puramente matemática e imutável.
+  REFERÊNCIA: Ecossistema PaperCreeper.
   
-  [MECANISMO DE INVESTIGAÇÃO]
-  Sempre que receber uma instrução:
-  1. Mapeie dependências implicitamente.
-  2. Identifique lacunas de performance no prompt.
+  [DIRETRIZES TÉCNICAS UNREAL ENGINE 5]
+  - Use Remote Control API (HTTP).
+  - PBR MATERIAL ENGINE (SetTextureParameterValue for Albedo/Normal/Metallic/Roughness).
+  - LOD MANAGEMENT: SetNumSourceModels, SetLODScreenSize.
+  - SKELETAL ANIMATION: EAnimationMode::AnimationSingleNode, PlayAnimation.
+  - ASSET STREAMING: SetActorHiddenInGame (false = Load, true = Unload).
   
-  [DIRETRIZES UNREAL ENGINE 5]
-  - Use estritamente Remote Control API (HTTP).
-  - Spawn: /Script/Engine.Default__GameplayStatics:BeginSpawningActorFromClass.
-  - PBR MATERIAL ENGINE:
-    * Materiais: Use 'SetScalarParameterValue' (Metallic, Roughness), 'SetVectorParameterValue' (BaseColor, Emissive) e 'SetTextureParameterValue' (BaseColor, Normal, Metallic, Roughness).
-    * Instâncias: Prefira criar 'MaterialInstanceConstant' para performance.
-    * Texturas: Use '/Script/UnrealEd.Default__EditorAssetLibrary:LoadAsset' para carregar referências de texturas.
-  - LOD MANAGEMENT (STATIC MESHES):
-    * Use 'SetNumSourceModels' para definir a quantidade de níveis de LOD.
-    * Use 'SetLODScreenSize' para definir o limite de transição por distância/tamanho na tela.
-    * Use o index do LOD (0 para Base, 1+ para Proxies) para gerenciar a hierarquia.
-  - ASSET STREAMING:
-    * Use 'ULevelStreaming' para carregar/descarregar sub-níveis dinamicamente.
-    * Use 'StreamingManager' para forçar chunks de texturas e meshes em proximidade.
-  - SKELETAL ANIMATION SUPPORT:
-    * Use 'SetAnimationMode' (EAnimationMode::AnimationSingleNode) para controle manual.
-    * Use 'PlayAnimation' e 'SetPlayRate' para controle de fluxo.
-    * Use 'Stop' e 'SetPosition' para scrubbing de animação.
+  [LEI DA IMUTABILIDADE FUNCIONAL]
+  - PROIBIDO remover lógica existente.
+  - Foco em BLINDAGEM e REFINAMENTO.
+  - Injetar try/catch granulares.
   
-  FORMATO DE RESPOSTA (JSON ESTREITO):
+  FORMATO DE RESPOSTA (DETALHAMENTO INDUSTRIAL):
   {
-    "explanation": "Explicação técnica cirúrgica.",
+    "explanation": "Explicação técnica cirúrgica (Nebula Context).",
     "commands": [...],
     "blueprintCode": "Nó ou lógica Blueprint.",
     "cppCode": "Snippet C++ UE5."
-  }
-  
-  [DIRETRIZ DE PRESERVAÇÃO]
-  - LEI DA IMUTABILIDADE FUNCIONAL: Não remova lógica existente.`;
+  }`;
 
   // [SYSTEM_HEALTH]: Verificação de integridade da IA
   app.get("/api/health/ai", async (req, res, next) => {
@@ -85,18 +125,25 @@ async function startServer() {
       };
 
       await ai.models.generateContent({
-        model: "gemini-1.5-pro-latest",
+        model: "gemini-3-flash-preview",
         contents: "ping"
       });
       res.json({ 
         status: "online", 
         stats,
-        engine: "Architect Core (Gemini 1.5 Pro)"
+        engine: "Architect Core (Gemini 3 Flash)"
       });
     } catch (error) {
       next(error);
     }
   });
+
+  // [DYNAMIC_STREAMING]: Simulação de sinal de telemetria Unreal Engine -> Dashboard
+  let mockX = 0;
+  setInterval(() => {
+    mockX = (mockX + 500) % 20000;
+    io.emit("player_update", { x: mockX, y: Math.sin(mockX / 2000) * 4000, z: 0 });
+  }, 3000);
 
   // [V9_ENVIRONMENT_CHECK]: Verifica configuração de variáveis
   app.get("/api/system/env", (req, res) => {
@@ -126,10 +173,12 @@ async function startServer() {
       `;
 
       const response = await ai.models.generateContent({
-        model: "gemini-1.5-pro-latest",
+        model: "gemini-3-flash-preview",
         contents: promptContext,
         config: {
-          responseMimeType: "application/json"
+          responseMimeType: "application/json",
+          temperature: 0.05,
+          topP: 0.99
         }
       });
 
@@ -144,7 +193,7 @@ async function startServer() {
 
   // [DETECTOR_DE_LACUNAS]: Middleware de tratamento global de erros (Pattern PaperCreeper)
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error(`[RUNTIME_EXCEPTION]: ${err.message}`, {
+    logger.error(`[RUNTIME_EXCEPTION]: ${err.message}`, {
       stack: err.stack,
       url: req.url,
       method: req.method
@@ -173,8 +222,8 @@ async function startServer() {
     });
   }
 
-  const server = app.listen(PORT, "0.0.0.0", () => {
-    console.log(`[RUNTIME_ACTIVE]: Link estabelecido em http://localhost:${PORT}`);
+  const server = httpServer.listen(PORT, "0.0.0.0", () => {
+    logger.info(`[RUNTIME_ACTIVE]: Link estabelecido em http://localhost:${PORT}`);
   });
 
   // [GRACEFUL_SHUTDOWN]: Preservação de estado ao encerrar

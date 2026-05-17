@@ -1,6 +1,6 @@
 {
-  "name": "PaperCreeper AI: Unreal Architect",
-  "description": "Plataforma de Engenharia Suprema baseada no Ecossistema V9, automatizando o desenvolvimento na Unreal Engine 5 com Script Factory e Diagnóstico Omni.",
+  "name": "Nebula: Unreal Architect",
+  "description": "Engine Cognitiva V12.1 - Plataforma de Engenharia de Alta Performance para automação e orquestração na Unreal Engine 5.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
