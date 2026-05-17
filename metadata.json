@@ -1,0 +1,6 @@
+{
+  "name": "AI Unreal Game Architect",
+  "description": "Uma plataforma de desenvolvimento de jogos impulsionada por IA para Unreal Engine, permitindo controle total do motor via comandos de voz e texto.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
