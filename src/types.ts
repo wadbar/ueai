@@ -43,3 +43,18 @@ export interface Actor {
   components: ActorComponent[];
   materials: { slotIndex: number, materialPath: string }[];
 }
+
+export interface StreamingAsset {
+  id: string;
+  name: string;
+  pos: { x: number, y: number, z: number };
+  status: 'LOADED' | 'UNLOADED' | 'LOD_ONLY';
+  distance: number;
+  loadRadius: number;
+}
+
+export interface SceneState {
+  actors: Actor[];
+  assets: StreamingAsset[];
+  timestamp: number;
+}
