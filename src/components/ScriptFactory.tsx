@@ -46,7 +46,7 @@ export const ScriptFactory: React.FC<ScriptFactoryProps> = ({
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-[#9462E1] font-bold text-xs uppercase tracking-[0.3em]">
               <Code2 className="w-4 h-4" />
-              <span>Nebula Script Factory V12</span>
+              <span>UE Architect Script Factory V12</span>
             </div>
             <h2 className="text-4xl font-black text-white tracking-tighter uppercase italic">Gerador Industrial</h2>
             <p className="text-[#8D8D99] max-w-lg">
@@ -235,7 +235,7 @@ export const ScriptFactory: React.FC<ScriptFactoryProps> = ({
             <div className="p-8 bg-gradient-to-br from-[#9462E1]/10 to-transparent border border-[#9462E1]/20 rounded-3xl space-y-4">
               <div className="flex items-center gap-3">
                 <Database className="w-5 h-5 text-[#9462E1]" />
-                <h3 className="font-black text-white uppercase tracking-widest text-xs">Engine Stats</h3>
+                <h3 className="font-black text-white uppercase tracking-widest text-xs">Core Stats</h3>
               </div>
               <div className="space-y-4">
                  <div className="space-y-1">

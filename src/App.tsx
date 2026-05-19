@@ -45,7 +45,8 @@ import { TelemetryView } from './components/TelemetryView';
 import { AuditTerminal } from './components/AuditTerminal';
 import { StreamingManager } from './components/StreamingManager';
 import { SceneInspector } from './components/SceneInspector';
-import { CognitiveEngine } from './components/CognitiveEngine';
+import { CognitiveCore } from './components/CognitiveCore';
+import { AssetScraperUI } from './components/AssetScraperUI';
 import { io } from 'socket.io-client';
 import { UECommand, AIResponse, LogEntry, UEConnection, Actor } from './types';
 
@@ -80,12 +81,12 @@ export default function App() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [currentAIResponse, setCurrentAIResponse] = useState<AIResponse | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [activeTab, setActiveTab] = useState<'console' | 'factory' | 'system' | 'streaming' | 'materials' | 'animations' | 'cinematics' | 'lod' | 'audit' | 'cognitive' | 'inspector'>('console');
+  const [activeTab, setActiveTab] = useState<'console' | 'factory' | 'system' | 'streaming' | 'materials' | 'animations' | 'cinematics' | 'lod' | 'audit' | 'cognitive' | 'inspector' | 'scraper'>('console');
   const [inspectorActors, setInspectorActors] = useState<Actor[]>([]);
   const [playerLocation, setPlayerLocation] = useState({ x: 0, y: 0, z: 0 });
   const [materials, setMaterials] = useState<any[]>([
-    { id: 'M_Cyberpunk_Metal', baseColor: '#9462E1', metallic: 0.9, roughness: 0.1, emissive: '#4D21B2', status: 'SYNCHRONIZED', textures: { albedo: '', normal: '', metallic: '', roughness: '' } },
-    { id: 'M_Industrial_Concrete', baseColor: '#323238', metallic: 0.0, roughness: 0.8, emissive: '#000000', status: 'SYNCHRONIZED', textures: { albedo: '', normal: '', metallic: '', roughness: '' } }
+    { id: 'M_Cyberpunk_Metal', baseColor: '#9462E1', metallic: 0.9, roughness: 0.1, emissive: '#4D21B2', status: 'SYNCHRONIZED', textures: { BaseColorTexture: '', NormalMap: '', MetallicMap: '', RoughnessMap: '' } },
+    { id: 'M_Industrial_Concrete', baseColor: '#323238', metallic: 0.2, roughness: 0.7, emissive: '#FF8000', status: 'SYNCHRONIZED', textures: { BaseColorTexture: '/Game/Textures/T_Industrial_Concrete_BaseColor', NormalMap: '/Game/Textures/T_Industrial_Normal', MetallicMap: '', RoughnessMap: '' } }
   ]);
   const [skeletalMeshes, setSkeletalMeshes] = useState<any[]>([
     { id: 'SK_Mannequin', assetPath: '/Game/Characters/Mannequins/SK_Mannequin', currentAnim: 'Idle', playing: false, loop: true, playRate: 1.0 },
@@ -137,16 +138,22 @@ export default function App() {
   const [isStandalone, setIsStandalone] = useState(false);
   const [envInfo, setEnvInfo] = useState<any>(null);
   const [selectedMaterialId, setSelectedMaterialId] = useState<string>('M_Cyberpunk_Metal');
-  const [editingProps, setEditingProps] = useState({
+  const [editingProps, setEditingProps] = useState<{
+    baseColor: string;
+    metallic: number;
+    roughness: number;
+    emissive: string;
+    textures: Record<string, string>;
+  }>({
     baseColor: '#9462E1',
     metallic: 0.9,
     roughness: 0.1,
     emissive: '#4D21B2',
     textures: {
-      albedo: '',
-      normal: '',
-      metallic: '',
-      roughness: ''
+      BaseColorTexture: '',
+      NormalMap: '',
+      MetallicMap: '',
+      RoughnessMap: ''
     }
   });
   
@@ -356,68 +363,150 @@ export default function App() {
     }
   };
 
+  const hexToRgbA = (hex: string) => {
+    let raw = hex.replace(/^#/, '');
+    if (raw.length === 3) raw = raw.split('').map(c => c + c).join('');
+    const num = parseInt(raw, 16);
+    return {
+      R: (num >> 16) / 255.0,
+      G: ((num >> 8) & 255) / 255.0,
+      B: (num & 255) / 255.0,
+      A: 1.0
+    };
+  };
+
   const handleApplyMaterial = async (materialId: string, props: any) => {
-    const commands: UECommand[] = [
-      {
-        endpoint: '/remote/object/call',
-        method: 'PUT',
-        body: {
-          objectPath: `/Game/Materials/Instances/${materialId}.${materialId}`,
-          functionName: 'SetVectorParameterValue',
-          parameters: {
-            ParameterName: 'BaseColor',
-            Value: props.baseColor
+    try {
+      const commands: UECommand[] = [
+        {
+          endpoint: '/remote/object/call',
+          method: 'PUT',
+          body: {
+            objectPath: `/Game/Materials/Instances/${materialId}.${materialId}`,
+            functionName: 'SetVectorParameterValue',
+            parameters: {
+              ParameterName: 'BaseColor',
+              Value: typeof props.baseColor === 'string' && props.baseColor.startsWith('#') ? hexToRgbA(props.baseColor) : props.baseColor
+            }
+          }
+        },
+        {
+          endpoint: '/remote/object/call',
+          method: 'PUT',
+          body: {
+            objectPath: `/Game/Materials/Instances/${materialId}.${materialId}`,
+            functionName: 'SetScalarParameterValue',
+            parameters: {
+              ParameterName: 'Metallic',
+              Value: props.metallic
+            }
+          }
+        },
+        {
+          endpoint: '/remote/object/call',
+          method: 'PUT',
+          body: {
+            objectPath: `/Game/Materials/Instances/${materialId}.${materialId}`,
+            functionName: 'SetScalarParameterValue',
+            parameters: {
+              ParameterName: 'Roughness',
+              Value: props.roughness
+            }
+          }
+        },
+        {
+          endpoint: '/remote/object/call',
+          method: 'PUT',
+          body: {
+            objectPath: `/Game/Materials/Instances/${materialId}.${materialId}`,
+            functionName: 'SetVectorParameterValue',
+            parameters: {
+              ParameterName: 'EmissiveColor',
+              Value: typeof props.emissive === 'string' && props.emissive.startsWith('#') ? hexToRgbA(props.emissive) : props.emissive
+            }
           }
         }
-      },
-      {
-        endpoint: '/remote/object/call',
-        method: 'PUT',
-        body: {
-          objectPath: `/Game/Materials/Instances/${materialId}.${materialId}`,
-          functionName: 'SetScalarParameterValue',
-          parameters: {
-            ParameterName: 'Metallic',
-            Value: props.metallic
+      ];
+
+      // Adiciona comandos de textura se houver caminhos definidos
+      Object.entries(props.textures).forEach(([param, path]) => {
+          if (path) {
+              commands.push({
+                  endpoint: '/remote/object/call',
+                  method: 'PUT',
+                  body: {
+                      objectPath: `/Game/Materials/Instances/${materialId}.${materialId}`,
+                      functionName: 'SetTextureParameterValue',
+                      parameters: {
+                          ParameterName: param,
+                          Value: typeof path === 'string' && !path.includes('.') ? `${path}.${path.split('/').pop()}` : path
+                      }
+                  }
+              });
           }
-        }
-      },
-      {
-        endpoint: '/remote/object/call',
-        method: 'PUT',
-        body: {
-          objectPath: `/Game/Materials/Instances/${materialId}.${materialId}`,
-          functionName: 'SetScalarParameterValue',
-          parameters: {
-            ParameterName: 'Roughness',
-            Value: props.roughness
+      });
+
+      addLog('ue', `Sincronizando parâmetros PBR para ${materialId}...`);
+      await executeCommands(commands);
+      
+      setMaterials(prev => prev.map(m => m.id === materialId ? { ...m, status: 'SYNCHRONIZED', ...props } : m));
+
+      // Aplicação ao ator selecionado
+      addLog('ue', 'Buscando atores selecionados para aplicação de material...');
+      const getSelectedRes = await fetch(`${connection.url}:${connection.port}/remote/object/call`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+              objectPath: '/Script/UnrealEd.Default__EditorLevelLibrary',
+              functionName: 'GetSelectedLevelActors'
+          })
+      });
+
+      if (getSelectedRes.ok) {
+          const data = await getSelectedRes.json();
+          const selectedActors = data.ReturnValue || [];
+          
+          if (selectedActors.length > 0) {
+              const applyCommands: UECommand[] = [];
+              selectedActors.forEach((actor: any) => {
+                  const actorPath = typeof actor === 'string' ? actor : (actor.ObjectPath || actor.Path || actor);
+                  // Deterministic application for standard StaticMeshComponent naming conventions
+                  applyCommands.push({
+                      endpoint: '/remote/object/call',
+                      method: 'PUT',
+                      body: {
+                          objectPath: `${actorPath}.StaticMeshComponent0`,
+                          functionName: 'SetMaterial',
+                          parameters: {
+                              ElementIndex: 0,
+                              Material: `/Game/Materials/Instances/${materialId}.${materialId}`
+                          }
+                      }
+                  });
+                  applyCommands.push({
+                      endpoint: '/remote/object/call',
+                      method: 'PUT',
+                      body: {
+                          objectPath: `${actorPath}.StaticMeshComponent`,
+                          functionName: 'SetMaterial',
+                          parameters: {
+                              ElementIndex: 0,
+                              Material: `/Game/Materials/Instances/${materialId}.${materialId}`
+                          }
+                      }
+                  });
+              });
+              await executeCommands(applyCommands);
+              addLog('ue', `Material ${materialId} aplicado aos atores selecionados com sucesso.`);
+          } else {
+              addLog('ue', 'Nenhum ator selecionado detectado na cena atual.');
           }
-        }
+      } else {
+          addLog('error', 'Falha ao recuperar atores selecionados via EditorLevelLibrary.');
       }
-    ];
-
-    // Adiciona comandos de textura se houver caminhos definidos
-    Object.entries(props.textures).forEach(([param, path]) => {
-        if (path) {
-            commands.push({
-                endpoint: '/remote/object/call',
-                method: 'PUT',
-                body: {
-                    objectPath: `/Game/Materials/Instances/${materialId}.${materialId}`,
-                    functionName: 'SetTextureParameterValue',
-                    parameters: {
-                        ParameterName: param === 'albedo' ? 'BaseColor' : param.charAt(0).toUpperCase() + param.slice(1),
-                        Value: path
-                    }
-                }
-            });
-        }
-    });
-
-    addLog('ue', `Sincronizando parâmetros PBR para ${materialId}...`);
-    await executeCommands(commands);
-    
-    setMaterials(prev => prev.map(m => m.id === materialId ? { ...m, status: 'SYNCHRONIZED', ...props } : m));
+    } catch (error: any) {
+      addLog('error', 'UNCAUGHT_EXCEPTION in handleApplyMaterial:', error.message || String(error));
+    }
   };
 
   const handleSpawnCamera = async (config: { x: number, y: number, z: number, fov: number, lookAtCenter: boolean }) => {
@@ -647,14 +736,14 @@ export default function App() {
             <Zap className="text-white w-6 h-6" />
           </div>
           <div>
-            <h1 className="font-bold text-lg tracking-tight">Nebula Architect</h1>
+            <h1 className="font-bold text-lg tracking-tight">UE Architect</h1>
             <div className="flex items-center gap-2">
               <span className={cn(
                 "w-2 h-2 rounded-full transition-all duration-500",
                 connection.connected ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]"
               )} />
               <p className="text-xs text-[#8D8D99] font-medium">
-                {connection.connected ? `Engine_V12: ${connection.port}` : "Link Offline"}
+                {connection.connected ? `Runtime_V12: ${connection.port}` : "Link Offline"}
               </p>
               <div className="w-px h-3 bg-[#323238] mx-1" />
               <div className="flex items-center gap-1.5 overflow-hidden">
@@ -763,6 +852,15 @@ export default function App() {
               )}
             >
               LOD MANAGER
+            </button>
+            <button 
+              onClick={() => setActiveTab('scraper')}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
+                activeTab === 'scraper' ? "bg-emerald-500 text-black shadow-lg" : "text-[#8D8D99] hover:text-white"
+              )}
+            >
+              ASSET SCRAPER
             </button>
             <button 
               onClick={() => setActiveTab('audit')}
@@ -904,7 +1002,8 @@ export default function App() {
                       <h3 className="text-lg font-bold text-white">Editor de Propriedades</h3>
                       <button 
                         onClick={() => handleApplyMaterial(selectedMaterialId, editingProps)}
-                        className="px-4 py-2 bg-emerald-500 text-black text-[11px] font-bold rounded-lg hover:bg-emerald-400 transition-colors"
+                        disabled={loading}
+                        className="px-4 py-2 bg-emerald-500 disabled:opacity-50 text-black text-[11px] font-bold rounded-lg hover:bg-emerald-400 transition-colors"
                       >
                         APLICAR AO SELECIONADO
                       </button>
@@ -912,22 +1011,50 @@ export default function App() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="space-y-6">
-                        <div className="space-y-2">
-                          <label className="text-[10px] text-[#8D8D99] font-bold uppercase tracking-widest">Albedo (Base Color)</label>
-                          <div className="flex items-center gap-3">
-                            <input 
-                              type="color" 
-                              className="w-12 h-12 bg-transparent border-0 cursor-pointer" 
-                              value={editingProps.baseColor}
-                              onChange={(e) => setEditingProps(prev => ({ ...prev, baseColor: e.target.value }))}
-                            />
-                            <input 
-                              type="text" 
-                              className="flex-1 bg-[#121214] border border-[#29292E] p-3 rounded-lg text-white font-mono text-sm" 
-                              value={editingProps.baseColor}
-                              onChange={(e) => setEditingProps(prev => ({ ...prev, baseColor: e.target.value }))}
-                            />
-                          </div>
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                              <label className="text-[10px] text-[#8D8D99] font-bold uppercase tracking-widest">Albedo (Base Color)</label>
+                              <div className="flex items-center gap-3">
+                                <input 
+                                  type="color" 
+                                  className="w-12 h-12 bg-transparent border-0 cursor-pointer" 
+                                  value={editingProps.baseColor}
+                                  onChange={(e) => setEditingProps(prev => ({ ...prev, baseColor: e.target.value }))}
+                                />
+                                <input 
+                                  type="text" 
+                                  className="flex-1 bg-[#121214] border border-[#29292E] p-3 rounded-lg text-white font-mono text-sm" 
+                                  value={typeof editingProps.baseColor === 'object' ? JSON.stringify(editingProps.baseColor) : editingProps.baseColor}
+                                  onChange={(e) => {
+                                      let val: any = e.target.value;
+                                      try { if (val.startsWith('{')) val = JSON.parse(val); } catch(err) {}
+                                      setEditingProps(prev => ({ ...prev, baseColor: val }));
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="text-[10px] text-red-500 font-bold uppercase tracking-widest">Emissive Color</label>
+                              <div className="flex items-center gap-3">
+                                <input 
+                                  type="color" 
+                                  className="w-12 h-12 bg-transparent border-0 cursor-pointer shadow-[0_0_15px_rgba(239,68,68,0.5)]" 
+                                  value={editingProps.emissive}
+                                  onChange={(e) => setEditingProps(prev => ({ ...prev, emissive: e.target.value }))}
+                                />
+                                <input 
+                                  type="text" 
+                                  className="flex-1 bg-[#121214] border border-[#29292E] p-3 rounded-lg text-white font-mono text-sm focus:border-red-500" 
+                                  value={typeof editingProps.emissive === 'object' ? JSON.stringify(editingProps.emissive) : editingProps.emissive}
+                                  onChange={(e) => {
+                                      let val: any = e.target.value;
+                                      try { if (val.startsWith('{')) val = JSON.parse(val); } catch(err) {}
+                                      setEditingProps(prev => ({ ...prev, emissive: val }));
+                                  }}
+                                />
+                              </div>
+                            </div>
                         </div>
 
                         <div className="space-y-4">
@@ -987,16 +1114,44 @@ export default function App() {
                     </div>
 
                     <div className="space-y-6 pt-8 border-t border-[#29292E]">
-                        <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest">Texture Channels</h3>
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest">Texture Channels</h3>
+                            <button 
+                                onClick={() => {
+                                    const paramName = window.prompt('Digite o nome do Parâmetro de Textura (ex: BaseColorTexture):');
+                                    if (paramName && !editingProps.textures[paramName]) {
+                                        setEditingProps(prev => ({
+                                            ...prev,
+                                            textures: { ...prev.textures, [paramName]: '' }
+                                        }));
+                                    }
+                                }}
+                                className="text-[10px] text-emerald-500 hover:text-emerald-400 font-bold uppercase"
+                            >
+                                + Adicionar Slot
+                            </button>
+                        </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            {['albedo', 'normal', 'metallic', 'roughness'].map((type) => (
+                            {Object.entries(editingProps.textures).map(([type, pathValue]) => (
                                 <div key={type} className="space-y-4">
-                                    <label className="text-[10px] text-[#8D8D99] font-bold uppercase tracking-widest">{type}</label>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[10px] text-[#8D8D99] font-bold uppercase tracking-widest">{type}</label>
+                                        <button 
+                                            onClick={() => {
+                                                const newTextures = { ...editingProps.textures };
+                                                delete newTextures[type];
+                                                setEditingProps(prev => ({ ...prev, textures: newTextures }));
+                                            }}
+                                            className="text-red-500/50 hover:text-red-500"
+                                        >
+                                            <Trash2 className="w-3 h-3" />
+                                        </button>
+                                    </div>
                                     <div className="relative group">
                                         <div className="h-40 bg-[#121214] border border-[#29292E] rounded-xl flex flex-col items-center justify-center gap-2 group-hover:border-[#9462E1] transition-all overflow-hidden">
-                                            {editingProps.textures[type as keyof typeof editingProps.textures] ? (
+                                            {pathValue ? (
                                                 <div className="w-full h-full bg-[#1e1e21] flex items-center justify-center italic text-[10px] text-[#4d4d57]">
-                                                    {editingProps.textures[type as keyof typeof editingProps.textures]}
+                                                    {pathValue}
                                                 </div>
                                             ) : (
                                                 <>
@@ -1011,10 +1166,10 @@ export default function App() {
                                             </button>
                                             <button 
                                                 onClick={() => {
-                                                    const path = window.prompt(`Digite o Asset Path da textura (${type}):`, '/Game/Textures/');
-                                                    if (path) setEditingProps(prev => ({ 
+                                                    const pathResult = window.prompt(`Digite o Asset Path da textura (${type}):`, '/Game/Textures/');
+                                                    if (pathResult !== null) setEditingProps(prev => ({ 
                                                         ...prev, 
-                                                        textures: { ...prev.textures, [type]: path } 
+                                                        textures: { ...prev.textures, [type]: pathResult } 
                                                     }));
                                                 }}
                                                 className="p-2 bg-white/10 rounded-lg text-white hover:bg-white/20"
@@ -1027,7 +1182,7 @@ export default function App() {
                                         type="text" 
                                         placeholder="/Game/Textures/..."
                                         className="w-full bg-[#121214] border border-[#29292E] p-2 rounded text-[10px] text-[#8D8D99] font-mono focus:border-[#9462E1] outline-none"
-                                        value={editingProps.textures[type as keyof typeof editingProps.textures]}
+                                        value={pathValue}
                                         onChange={(e) => setEditingProps(prev => ({ 
                                             ...prev, 
                                             textures: { ...prev.textures, [type]: e.target.value } 
@@ -1047,7 +1202,7 @@ export default function App() {
                 <header className="space-y-2">
                   <div className="flex items-center gap-2 text-indigo-500 font-bold text-xs uppercase tracking-[0.2em]">
                     <Camera className="w-4 h-4" />
-                    <span>Cine Studio Engine</span>
+                    <span>Cine Studio Core</span>
                   </div>
                   <h2 className="text-3xl font-bold text-white tracking-tight leading-tight">Camera Controller</h2>
                   <p className="text-[#8D8D99]">Crie e maneje câmeras cinematográficas com precisão absoluta.</p>
@@ -1059,7 +1214,8 @@ export default function App() {
                     <div className="space-y-4">
                       <button 
                         onClick={() => handleSpawnCamera({ x: 1000, y: 1000, z: 500, fov: 75, lookAtCenter: true })}
-                        className="w-full p-6 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl flex items-center justify-between group hover:bg-indigo-500/20 transition-all"
+                        disabled={loading}
+                        className="w-full p-6 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl flex items-center justify-between group hover:bg-indigo-500/20 disabled:opacity-50 transition-all"
                       >
                          <div className="flex items-center gap-4 text-left">
                             <div className="p-3 bg-indigo-500 text-white rounded-xl group-hover:scale-110 transition-transform">
@@ -1154,7 +1310,8 @@ export default function App() {
                               </div>
                               <button 
                                 onClick={() => handleApplyLODs(config.path, config.lods)}
-                                className="px-6 py-3 bg-amber-500 text-black font-bold rounded-xl hover:bg-amber-400 transition-all flex items-center gap-2"
+                                disabled={loading}
+                                className="px-6 py-3 bg-amber-500 disabled:opacity-50 text-black font-bold rounded-xl hover:bg-amber-400 transition-all flex items-center gap-2"
                               >
                                  <Zap className="w-4 h-4 fill-current" />
                                  DEPLOY LOD_MAP
@@ -1231,7 +1388,7 @@ export default function App() {
                 <header className="space-y-2">
                   <div className="flex items-center gap-2 text-rose-500 font-bold text-xs uppercase tracking-[0.2em]">
                     <Video className="w-4 h-4" />
-                    <span>Skeletal Animation Engine</span>
+                    <span>Skeletal Animation Core</span>
                   </div>
                   <h2 className="text-3xl font-bold text-white tracking-tight leading-tight">Animation Controller</h2>
                   <p className="text-[#8D8D99]">Gerencie ativos de animação e controle a reprodução de skeletal meshes em tempo real.</p>
@@ -1322,8 +1479,10 @@ export default function App() {
                   }]);
                }}
             />
+          ) : activeTab === 'scraper' ? (
+            <AssetScraperUI addLog={addLog} />
           ) : activeTab === 'cognitive' ? (
-            <CognitiveEngine />
+            <CognitiveCore />
           ) : (
             <div className="flex-1 flex items-center justify-center bg-[#050505] text-[#4D4D57]">
                <div className="text-center space-y-4">

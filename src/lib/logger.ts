@@ -6,7 +6,7 @@ const logger = winston.createLogger({
     winston.format.timestamp(),
     winston.format.json()
   ),
-  defaultMeta: { service: 'nebula-architect-core' },
+  defaultMeta: { service: 'ue-architect-core' },
   transports: [
     new winston.transports.Console({
       format: winston.format.combine(

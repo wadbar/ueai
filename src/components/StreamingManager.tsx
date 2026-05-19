@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Box, Map, Navigation, Trash2, Plus, Zap, AlertCircle, Eye, EyeOff, Radio, Target } from 'lucide-react';
 import axios from 'axios';
 import { UEConnection } from '../types';
+import { Frustum } from '../lib/math3d';
 
 interface StreamingAsset {
   id: string;
@@ -38,6 +39,8 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
   const lastUpdateRef = useRef<number>(0);
 
   const getForwardVector = (rot: { r: number; p: number; y: number }) => {
+    // Pitch & Yaw are converted to radians for trig functions.
+    // Standard UE to mathematical forward vector mapping
     const pitch = rot.p * (Math.PI / 180);
     const yaw = rot.y * (Math.PI / 180);
     return {
@@ -88,19 +91,33 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
 
         let isInFrustum = true;
         if (useFrustumCulling) {
-          const toAsset = { x: asset.pos.x - camera.pos.x, y: asset.pos.y - camera.pos.y, z: asset.pos.z - camera.pos.z };
-          const distToCam = Math.sqrt(Math.pow(toAsset.x, 2) + Math.pow(toAsset.y, 2) + Math.pow(toAsset.z, 2));
-          if (distToCam > 0) {
-            const dot = (toAsset.x * forward.x + toAsset.y * forward.y + toAsset.z * forward.z) / distToCam;
-            const angle = Math.acos(Math.max(-1, Math.min(1, dot))) * (180 / Math.PI);
-            isInFrustum = angle < (camera.fov / 2);
-          }
+          isInFrustum = Frustum.fastSphereInFrustum(
+            camera.pos,
+            forward,
+            camera.fov,
+            asset.pos,
+            asset.loadRadius,
+            10.0, // Near plane
+            50000.0 // Far plane
+          );
         }
 
         let newStatus: 'LOADED' | 'UNLOADED' | 'LOD_ONLY' = asset.status;
-        if ((dist > asset.loadRadius * 1.5) || (useFrustumCulling && !isInFrustum && dist > asset.loadRadius * 0.5)) newStatus = 'UNLOADED';
-        else if (dist > asset.loadRadius) newStatus = 'LOD_ONLY';
-        else newStatus = 'LOADED';
+        
+        // Culling logic combining Distance & Frustum
+        if (asset.isManual) {
+          // Manual assets ignore Culling overrides.
+          newStatus = asset.status;
+        } else if (dist > asset.loadRadius * 1.5) {
+          newStatus = 'UNLOADED';
+        } else if (useFrustumCulling && !isInFrustum && dist > asset.loadRadius * 0.5) {
+          // Unload if not culled by view, but outside the safe inner bubble
+          newStatus = 'UNLOADED';
+        } else if (dist > asset.loadRadius) {
+          newStatus = 'LOD_ONLY';
+        } else {
+          newStatus = 'LOADED';
+        }
 
         if (newStatus !== asset.status) {
           sendUECommand({ ...asset, distance: dist }, newStatus === 'LOADED');
@@ -126,7 +143,7 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-blue-500 font-bold text-xs uppercase tracking-[0.3em]">
               <Navigation className="w-4 h-4" />
-              <span>Nebula Spatial Streaming V4</span>
+              <span>UE Spatial Streaming V4</span>
             </div>
             <h2 className="text-4xl font-black text-white tracking-tighter uppercase italic">Geofencing de Assets</h2>
             <p className="text-[#8D8D99] max-w-lg">

@@ -144,7 +144,7 @@ export const AuditTerminal: React.FC = () => {
             <span className="text-[9px] text-[#4D4D57] font-bold uppercase">Buffer: {logs.length}/100</span>
           </div>
         </div>
-        <span className="text-[9px] text-[#29292E] font-bold italic uppercase">Nebula_V12_Audit_Channel</span>
+        <span className="text-[9px] text-[#29292E] font-bold italic uppercase">UE_Architect_Audit_Channel</span>
       </div>
     </div>
   );

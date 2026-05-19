@@ -39,7 +39,7 @@ export const TelemetryView: React.FC = () => {
         <header className="space-y-2">
           <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs uppercase tracking-[0.3em]">
             <Activity className="w-4 h-4" />
-            <span>Nebula Core Telemetry (PaperCreeper Standard)</span>
+            <span>UE Architect Core Telemetry (PaperCreeper Standard)</span>
           </div>
           <h2 className="text-4xl font-black text-white tracking-tighter uppercase italic">Diagnóstico de Sistema</h2>
           <p className="text-[#8D8D99] max-w-lg">Monitoramento de baixo nível do runtime do ambiente e instabilidades estruturais.</p>
@@ -212,7 +212,7 @@ export const TelemetryView: React.FC = () => {
                   <h3 className="font-bold text-red-500/60 uppercase tracking-tight text-sm">Alertas Críticos</h3>
                </div>
                <p className="text-xs text-red-500/40 italic">
-                  Nenhum alerta crítico ativo no momento. O motor Nebula mantém a integridade estrutural.
+                  Nenhum alerta crítico ativo no momento. O motor do UE Architect mantém a integridade estrutural.
                </p>
             </div>
           </aside>

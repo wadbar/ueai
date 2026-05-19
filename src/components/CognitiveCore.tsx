@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Cpu, Zap, Activity, Shield, Binary, Globe, Database, Layers } from 'lucide-react';
 
-export const CognitiveEngine: React.FC = () => {
+export const CognitiveCore: React.FC = () => {
   const [pulse, setPulse] = useState(0);
   const [synapses, setSynapses] = useState<number[]>([]);
 
@@ -20,7 +20,7 @@ export const CognitiveEngine: React.FC = () => {
         <header className="space-y-4">
           <div className="flex items-center gap-3 text-purple-500 font-bold text-xs uppercase tracking-[0.4em]">
             <Cpu className="w-5 h-5" />
-            <span>Nebula Cognitive Engine V12.1</span>
+            <span>UE Architect Cognitive Core V12.1</span>
           </div>
           <h2 className="text-5xl font-black text-white tracking-tighter uppercase italic">Status do Núcleo Arquitetural</h2>
           <p className="text-[#8D8D99] max-w-2xl leading-relaxed">
@@ -109,7 +109,7 @@ export const CognitiveEngine: React.FC = () => {
                    <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">Repository Sync</h3>
                 </div>
                 <div className="space-y-3">
-                   {['PaperCreeper', 'Nebula', 'ueai', 'papermu'].map(repo => (
+                   {['PaperCreeper', 'UEArchitect', 'ueai', 'papermu'].map(repo => (
                      <div key={repo} className="flex items-center justify-between text-[11px]">
                         <span className="text-[#8D8D99] font-bold">{repo}</span>
                         <span className="text-emerald-500 font-black">SYNCED</span>

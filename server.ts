@@ -10,7 +10,11 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import logger from "./src/lib/logger";
 
+import { WebScraperWorker } from "./src/server/WebScraperWorker";
+
 dotenv.config();
+
+const scraperWorker = new WebScraperWorker(10);
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -109,7 +113,7 @@ async function startServer() {
   
   FORMATO DE RESPOSTA (DETALHAMENTO INDUSTRIAL):
   {
-    "explanation": "Explicação técnica cirúrgica (Nebula Context).",
+    "explanation": "Explicação técnica cirúrgica (UE Architect Context).",
     "commands": [...],
     "blueprintCode": "Nó ou lógica Blueprint.",
     "cppCode": "Snippet C++ UE5."
@@ -199,6 +203,36 @@ async function startServer() {
         res.status(500).json({ status: "error", message: "Internal server error" });
       }
     }
+  });
+
+  // [WEB_SCRAPER_INTEGRATION]: Endpoint robusto de mineração assíncrona (Inspired by Kodi/OpenSearch)
+  app.post("/api/scraper/execute", async (req, res) => {
+    const { targets } = req.body;
+    
+    if (!Array.isArray(targets) || targets.length === 0) {
+      return res.status(400).json({ error: "INVALID_TARGETS", message: "É necessário fornecer um array de alvos de raspagem (configs)." });
+    }
+
+    try {
+      // Dispara o processamento isolado no worker assíncrono
+      const results = await scraperWorker.execute(targets);
+      res.json({
+        status: "success",
+        timestamp: Date.now(),
+        data: results
+      });
+    } catch (error: any) {
+      console.error("SCRAPE_FAULT:", error);
+      res.status(500).json({ error: "SCRAPE_FAULT", message: "O motor de raspagem falhou durante a execução." });
+    }
+  });
+
+  app.get("/api/scraper/status", (req, res) => {
+    res.json({
+      status: "online",
+      activeWorkers: scraperWorker.getActiveWorkers(),
+      timestamp: Date.now()
+    });
   });
 
   // [DETECTOR_DE_LACUNAS]: Middleware de tratamento global de erros (Pattern PaperCreeper)
