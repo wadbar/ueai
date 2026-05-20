@@ -29,7 +29,7 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
     yaw: 45,
     targetActor: '',
     cameraActor: '',
-    autoUpdate: false
+    autoUpdate: true
   });
 
   const [discoveredCameras, setDiscoveredCameras] = useState<string[]>([]);
@@ -81,6 +81,16 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
       const seqPaths = sequences.map((c: any) => typeof c === 'string' ? c : (c.ObjectPath || c.Path));
       setDiscoveredSequences(seqPaths);
       if (seqPaths.length > 0) setActiveSequence(seqPaths[0]);
+      
+      const mySeq = seqPaths.find((p: string) => p.includes('MyLevelSequence'));
+      if (mySeq) {
+         addLog('ue', 'Iniciando reprodução automática da sequência MyLevelSequence');
+         await axios.put(`${connection.url}:${connection.port}/remote/object/call`, {
+            objectPath: `${mySeq}.SequencePlayer`,
+            functionName: 'Play',
+            parameters: {}
+         });
+      }
     } catch (e) {}
   };
 
@@ -101,6 +111,7 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
   useEffect(() => {
     scanCameras();
     scanSequences();
+    syncSelectedAsTarget();
   }, [connection.connected]);
 
   const syncSelectedAsTarget = async () => {

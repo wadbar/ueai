@@ -52,7 +52,7 @@ export const SceneInspector: React.FC<SceneInspectorProps> = ({ onRefresh, actor
   const handleFOVChange = async (val: number) => {
     if (!selectedActor || !onPropertyUpdate) return;
     
-    // Update local property simulation if needed, but primarily call parent
+    // Update property remotely natively via parent component integration
     const objectPath = cameraComp ? `${selectedActor.path}.${cameraComp.id}` : selectedActor.path;
     await onPropertyUpdate(objectPath, 'FieldOfView', val);
   };

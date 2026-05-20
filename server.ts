@@ -11,6 +11,7 @@ import { Server } from "socket.io";
 import logger from "./src/lib/logger";
 
 import { WebScraperWorker } from "./src/server/WebScraperWorker";
+import { ai, withAIRetry, ARCHITECT_CORE_INSTRUCTION } from "./src/server/aiHelper";
 
 dotenv.config();
 
@@ -86,41 +87,7 @@ async function startServer() {
     });
   }, 2000);
 
-  // AI Setup com tratamento robusto (SDK @google/genai)
-  const ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY || "",
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      }
-    }
-  });
-
-  const ARCHITECT_CORE_INSTRUCTION = `[ENGINE_COGNITIVA_V12.1_CORE]
-  Você é um motor de engenharia de software de altíssima performance. Sua lógica é puramente matemática e imutável.
-  REFERÊNCIA: Ecossistema PaperCreeper.
-  
-  [DIRETRIZES TÉCNICAS UNREAL ENGINE 5]
-  - Use Remote Control API (HTTP).
-  - PBR MATERIAL ENGINE (SetTextureParameterValue for Albedo/Normal/Metallic/Roughness).
-  - LOD MANAGEMENT: SetNumSourceModels, SetLODScreenSize.
-  - SKELETAL ANIMATION: EAnimationMode::AnimationSingleNode, PlayAnimation.
-  - ASSET STREAMING: SetActorHiddenInGame (false = Load, true = Unload).
-  
-  [LEI DA IMUTABILIDADE FUNCIONAL]
-  - PROIBIDO remover lógica existente.
-  - Foco em BLINDAGEM e REFINAMENTO.
-  - Injetar try/catch granulares.
-  
-  FORMATO DE RESPOSTA (DETALHAMENTO INDUSTRIAL):
-  {
-    "explanation": "Explicação técnica cirúrgica (UE Architect Context).",
-    "commands": [...],
-    "blueprintCode": "Nó ou lógica Blueprint.",
-    "cppCode": "Snippet C++ UE5."
-  }`;
-
-  // [SYSTEM_HEALTH]: Verificação de integridade da IA
+  // [SYSTEM_HEALTH]: Verificação de integridade da IA com Autocura
   app.get("/api/health/ai", async (req, res) => {
     try {
       const stats = {
@@ -129,37 +96,40 @@ async function startServer() {
         timestamp: Date.now()
       };
 
-      await ai.models.generateContent({
+      await withAIRetry(() => ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: "ping"
-      });
+      }));
+
       res.json({ 
         status: "online", 
         stats,
         engine: "Architect Core (Gemini 3 Flash)"
       });
     } catch (error: any) {
-      if (error?.status === 429 || error?.code === 429) {
+      const statusCode = error?.status || error?.code || 500;
+      
+      if (statusCode === 429) {
         res.status(429).json({ status: "limited", message: "Quota exhausted" });
+      } else if (statusCode === 503 || error?.message?.includes("demand")) {
+        res.status(503).json({ status: "degraded", message: "AI Engine is overloaded. Self-healing in progress." });
       } else {
-        console.error("AI_HEALTH_CHECK_ERROR:", error);
+        logger.error("AI_HEALTH_CHECK_ERROR:", error);
         res.status(500).json({ status: "error", message: "Internal server error" });
       }
     }
   });
 
-  // [DYNAMIC_STREAMING]: Simulação de sinal de telemetria Unreal Engine -> Dashboard
-  // Nota: Em produção, isto seria alimentado por um WebSocket real da UE5 ou polling Remote Control.
-  let mockX = 0;
-  setInterval(() => {
-    mockX = (mockX + 500) % 20000;
-    io.emit("player_update", { 
-      x: mockX, 
-      y: Math.sin(mockX / 2000) * 4000, 
-      z: 0,
-      source: 'EMULATED_TELEMETRY' 
+  // [ARCHITECT_TELEMETRY]: Monitoramento de integridade real
+  app.get("/api/system/status", (req, res) => {
+    res.json({
+      status: "operational",
+      uptime: process.uptime(),
+      timestamp: Date.now(),
+      v9_layer: "Active",
+      papercreeper_matriz: "V12.1"
     });
-  }, 3000);
+  });
 
   // [V9_ENVIRONMENT_CHECK]: Verifica configuração de variáveis
   app.get("/api/system/env", (req, res) => {
@@ -188,7 +158,7 @@ async function startServer() {
         INPUT_USUARIO: ${prompt}
       `;
 
-      const response = await ai.models.generateContent({
+      const response = await withAIRetry(() => ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: promptContext,
         config: {
@@ -196,17 +166,21 @@ async function startServer() {
           temperature: 0.05,
           topP: 0.99
         }
-      });
+      }));
 
       const responseText = response.text || "";
       if (!responseText) throw new Error("RESPOSTA_NEURAL_VAZIA");
 
       res.json(JSON.parse(responseText));
     } catch (error: any) {
-      if (error?.status === 429 || error?.code === 429) {
+      const statusCode = error?.status || error?.code || 500;
+
+      if (statusCode === 429) {
         res.status(429).json({ status: "limited", message: "Quota exhausted. Try again later." });
+      } else if (statusCode === 503 || error?.message?.includes("demand")) {
+        res.status(503).json({ status: "degraded", message: "AI Engine currently unavailable. Try again in a few seconds." });
       } else {
-        console.error("AI_COMMAND_ERROR:", error);
+        logger.error("AI_COMMAND_ERROR:", error);
         res.status(500).json({ status: "error", message: "Internal server error" });
       }
     }

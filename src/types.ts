@@ -52,8 +52,9 @@ export interface AIResponse {
 }
 
 export interface SystemHealth {
-  status: 'online' | 'degraded' | 'offline' | 'checking';
+  status: 'online' | 'degraded' | 'offline' | 'checking' | 'operational' | 'limited';
   latency?: string;
+  memory?: any;
 }
 
 export interface UECommand {
@@ -68,8 +69,27 @@ export interface MaterialInstance {
   metallic: number;
   roughness: number;
   emissive: string;
-  status: 'SYNCHRONIZED' | 'DIRTY' | 'ERROR';
+  status: 'SYNCHRONIZED' | 'DIRTY' | 'ERROR' | 'REMOTE';
   textures: Record<string, string>;
+  path?: string;
+}
+
+export interface StreamingAsset {
+  id: string;
+  type: string;
+  pos: { x: number; y: number; z: number };
+  status: 'LOADED' | 'UNLOADED' | 'LOD_ONLY';
+  size: string;
+  path: string;
+  loadRadius: number;
+  distance?: number;
+  isManual?: boolean;
+}
+
+export interface SceneState {
+  actors: Actor[];
+  assets: StreamingAsset[];
+  timestamp: number;
 }
 
 export interface SkeletalMesh {
@@ -123,10 +143,16 @@ export interface PhotogrammetryJob {
 }
 
 export interface SystemStats {
-  fps: number;
-  cpu: number;
-  gpu: number;
-  ram: string;
-  ping: number;
-  uptime: string;
+  memory: {
+    heapUsed: number;
+    heapTotal: number;
+    rss: number;
+  };
+  cpu: {
+    user: number;
+    system: number;
+  };
+  uptime: number;
+  timestamp: number;
+  activeScrapers?: number;
 }

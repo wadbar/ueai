@@ -57,7 +57,7 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
       const endpoint = '/remote/object/call';
       const actorPath = `${asset.path}.${asset.id}`;
       
-      // Comando para setar visibilidade (Simulando streaming de carga)
+      // Comando para modificar visibilidade na Unreal Engine
       await axios.put(`${connection.url}:${connection.port}${endpoint}`, {
         objectPath: actorPath,
         functionName: 'SetActorHiddenInGame',
@@ -77,24 +77,28 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
     lastUpdateRef.current = now;
 
     const computeStreaming = async () => {
-      const forward = getForwardVector(camera.rot);
+      const activeCameraRot = camera?.rot || { r: 0, p: 0, y: 0 };
+      const activeCameraPos = camera?.pos || playerLocation;
+      const activeCameraFov = camera?.fov || 90;
+
+      const forward = getForwardVector(activeCameraRot);
       const updatedAssets = assets.map(asset => {
         const dist = Math.sqrt(
-          Math.pow(asset.pos.x - playerLocation.x, 2) +
-          Math.pow(asset.pos.y - playerLocation.y, 2) +
-          Math.pow(asset.pos.z - playerLocation.z, 2)
+          Math.pow(asset.pos.x - activeCameraPos.x, 2) +
+          Math.pow(asset.pos.y - activeCameraPos.y, 2) +
+          Math.pow(asset.pos.z - activeCameraPos.z, 2)
         );
 
         if (asset.isManual) {
-          return { ...asset, distance: dist };
+          asset.loadRadius = 7500;
         }
 
         let isInFrustum = true;
         if (useFrustumCulling) {
           isInFrustum = Frustum.fastSphereInFrustum(
-            camera.pos,
+            activeCameraPos,
             forward,
-            camera.fov,
+            activeCameraFov,
             asset.pos,
             asset.loadRadius,
             10.0, // Near plane
@@ -105,10 +109,7 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
         let newStatus: 'LOADED' | 'UNLOADED' | 'LOD_ONLY' = asset.status;
         
         // Culling logic combining Distance & Frustum
-        if (asset.isManual) {
-          // Manual assets ignore Culling overrides.
-          newStatus = asset.status;
-        } else if (dist > asset.loadRadius * 1.5) {
+        if (dist > asset.loadRadius * 1.5) {
           newStatus = 'UNLOADED';
         } else if (useFrustumCulling && !isInFrustum && dist > asset.loadRadius * 0.5) {
           // Unload if not culled by view, but outside the safe inner bubble
@@ -184,16 +185,16 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
                <div className="bg-[#121214] border border-[#29292E] p-8 rounded-[32px] space-y-4">
                   <div className="flex items-center justify-between">
                      <Map className="w-8 h-8 text-blue-500" />
-                     <span className="text-[10px] font-black text-[#4D4D57] uppercase tracking-widest">Player Pos</span>
+                     <span className="text-[10px] font-black text-[#4D4D57] uppercase tracking-widest">Active Camera Pos</span>
                   </div>
                   <div className="flex gap-4">
                      <div className="flex-1 space-y-1">
                         <span className="text-[9px] font-bold text-[#4D4D57] uppercase">X-Axis</span>
-                        <p className="text-2xl font-black text-white tracking-tighter">{playerLocation.x.toFixed(0)}</p>
+                        <p className="text-2xl font-black text-white tracking-tighter">{(camera?.pos?.x || playerLocation.x).toFixed(0)}</p>
                      </div>
                      <div className="flex-1 space-y-1">
                         <span className="text-[9px] font-bold text-[#4D4D57] uppercase">Y-Axis</span>
-                        <p className="text-2xl font-black text-white tracking-tighter">{playerLocation.y.toFixed(0)}</p>
+                        <p className="text-2xl font-black text-white tracking-tighter">{(camera?.pos?.y || playerLocation.y).toFixed(0)}</p>
                      </div>
                   </div>
                </div>
@@ -219,14 +220,17 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
                         const path = window.prompt("Enter Asset Path (e.g. /Game/Meshes/Player)");
                         const id = window.prompt("Enter Actor ID (e.g. BP_Player_C_1)");
                         if(path && id) {
+                          const posX = camera?.pos?.x || playerLocation.x;
+                          const posY = camera?.pos?.y || playerLocation.y;
+                          const posZ = camera?.pos?.z || playerLocation.z;
                           setAssets(prev => [...prev, {
                             id,
                             type: 'Manual',
                             path,
-                            pos: { x: playerLocation.x, y: playerLocation.y, z: playerLocation.z },
+                            pos: { x: posX, y: posY, z: posZ },
                             status: 'LOADED',
                             size: '0MB',
-                            loadRadius: 5000
+                            loadRadius: 7500
                           }]);
                         }
                       }}

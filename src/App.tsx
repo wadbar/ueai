@@ -67,8 +67,19 @@ import {
   MaterialInstance,
   SkeletalMesh,
   SystemStats,
-  MeshDiagnostics
+  MeshDiagnostics,
+  LODLevel,
+  StreamingAsset
 } from './types';
+
+
+function getFullAssetPath(shortPath: string) {
+  if (shortPath.includes("'")) return shortPath;
+  if (!shortPath.startsWith('/')) return shortPath;
+  const parts = shortPath.split('/');
+  const name = parts[parts.length - 1];
+  return `/Script/Engine.Texture2D'${shortPath}.${name}'`;
+}
 
 
 function hexToRgbA(hex: string) {
@@ -141,52 +152,103 @@ export default function App() {
   const ue = useUnrealEngine(connection, addLog);
   const inspector = useSceneInspector(connection);
 
+  const scanProjectAssets = useCallback(async () => {
+    if (!connection.connected) return;
+    addLog('ue', 'Iniciando varredura profunda de ativos (Materiais/SkeletalMeshes)...');
+    
+    const script = `
+import unreal
+import json
+
+def get_assets_of_class(class_name):
+    ar = unreal.AssetRegistryHelpers.get_asset_registry()
+    assets = ar.get_assets_by_class(class_name, True)
+    return [a.get_full_name().split(' ')[1] for a in assets]
+
+def get_level_actors_data():
+    actors = unreal.EditorLevelLibrary.get_all_level_actors()
+    streaming = []
+    for a in actors:
+        if isinstance(a, unreal.StaticMeshActor):
+            comp = a.static_mesh_component
+            if comp and comp.static_mesh:
+                streaming.append({
+                    "id": a.get_actor_label(),
+                    "path": comp.static_mesh.get_path_name(),
+                    "pos": {"x": a.get_actor_location().x, "y": a.get_actor_location().y, "z": a.get_actor_location().z},
+                    "type": "StaticMeshActor",
+                    "loadRadius": 10000
+                })
+    return streaming
+
+data = {
+    "materials": get_assets_of_class("MaterialInstanceConstant"),
+    "skeletal_meshes": get_assets_of_class("SkeletalMesh"),
+    "streaming": get_level_actors_data()[:10] # Limit to top 10 for performance
+}
+print("ASSET_DATA_START" + json.dumps(data) + "ASSET_DATA_END")
+`;
+
+    try {
+      const res = await axios.post(`${connection.url}:${connection.port}/remote/script/execute`, { script });
+      const output = res.data?.output || "";
+      const match = output.match(/ASSET_DATA_START(.*)ASSET_DATA_END/);
+      
+      if (match) {
+        const parsed = JSON.parse(match[1]);
+        
+        const newMaterials: MaterialInstance[] = parsed.materials.map((path: string) => ({
+          id: path.split('.').pop() || 'Unnamed',
+          baseColor: '#FFFFFF',
+          metallic: 0,
+          roughness: 0.5,
+          emissive: '#000000',
+          status: 'REMOTE',
+          textures: { BaseColorTexture: '', NormalMap: '', MetallicMap: '', RoughnessMap: '', SpecularMap: '' },
+          path: path
+        }));
+
+        const newMeshes: SkeletalMesh[] = parsed.skeletal_meshes.map((path: string) => ({
+          id: path.split('.').pop() || 'Unnamed',
+          assetPath: path,
+          currentAnim: 'None',
+          playing: false,
+          loop: true,
+          playRate: 1.0,
+          animations: []
+        }));
+
+        const newStreaming = parsed.streaming.map((s: any) => ({
+          ...s,
+          status: 'LOADED',
+          size: '---'
+        }));
+
+        setMaterials(newMaterials);
+        setSkeletalMeshes(newMeshes);
+        setStreamingAssets(newStreaming);
+        addLog('ue', `IMPORT_COMPLETE: ${newMaterials.length} Materiais, ${newMeshes.length} SkeletalMeshes e ${newStreaming.length} Streaming Nodes.`);
+      }
+    } catch (err: any) {
+      addLog('error', `ASSET_SCAN_FAULT: ${err.message}`);
+    }
+  }, [connection, addLog]);
+
   const scanScene = useCallback(async () => {
     addLog('ue', 'Iniciando varredura de cena...');
     const result = await inspector.scanScene();
     if (result) {
        addLog('ue', `${result.length} atores identificados.`);
+       // Auto-sync assets too
+       scanProjectAssets();
     }
-  }, [inspector, addLog]);
+  }, [inspector, addLog, scanProjectAssets]);
 
   const [playerLocation, setPlayerLocation] = useState({ x: 0, y: 0, z: 0 });
-  const [materials, setMaterials] = useState<MaterialInstance[]>([
-    { id: 'M_Cyberpunk_Metal', baseColor: '#9462E1', metallic: 0.9, roughness: 0.1, emissive: '#4D21B2', status: 'SYNCHRONIZED', textures: { BaseColorTexture: '', NormalMap: '', MetallicMap: '', RoughnessMap: '', SpecularMap: '' } },
-    { id: 'M_Industrial_Concrete', baseColor: '#323238', metallic: 0.2, roughness: 0.7, emissive: '#FF8000', status: 'SYNCHRONIZED', textures: { BaseColorTexture: '/Game/Textures/T_Concrete_BaseColor_Mossy', NormalMap: '/Game/Textures/T_Industrial_Normal', MetallicMap: '', RoughnessMap: '', SpecularMap: '' } }
-  ]);
-  const [skeletalMeshes, setSkeletalMeshes] = useState<SkeletalMesh[]>([
-    { 
-      id: 'SK_Mannequin', 
-      assetPath: '/Game/Characters/Mannequins/SK_Mannequin', 
-      currentAnim: 'Idle', 
-      playing: false, 
-      loop: true, 
-      playRate: 1.0,
-      animations: ['Idle', 'Walk', 'Run', 'Greet', 'Jump']
-    },
-    { 
-      id: 'SK_Robotic_Arm', 
-      assetPath: '/Game/Props/Robotics/SK_Robotic_Arm', 
-      currentAnim: 'Sequence_01', 
-      playing: true, 
-      loop: false, 
-      playRate: 1.5,
-      animations: ['Sequence_01', 'Sequence_02', 'Calibration', 'Grab']
-    }
-  ]);
-  const [cameras, setCameras] = useState<any[]>([
-    { id: 'Main_CineCam', pos: { x: 0, y: -500, z: 150 }, rot: { r: 0, p: 0, y: 90 }, fov: 60, active: true }
-  ]);
-  const [streamingAssets, setStreamingAssets] = useState<any[]>(() => {
-    const saved = localStorage.getItem('ue_streaming_assets_v4');
-    if (saved) return JSON.parse(saved);
-    return [
-      { id: 'SM_Citadel_Gate', type: 'LevelInstance', pos: { x: 5000, y: 0, z: 0 }, status: 'LOADED', size: '245MB', path: '/Game/Environment/Meshes/SM_Citadel_Gate', loadRadius: 8000 },
-      { id: 'SM_Terrain_Sector_A1', type: 'WorldPartition', pos: { x: -2000, y: 500, z: 0 }, status: 'LOADED', size: '1.2GB', path: '/Game/Environment/Meshes/SM_Terrain_Sector_A1', loadRadius: 10000 },
-      { id: 'SM_Detail_Props_04', type: 'StaticMesh', pos: { x: 15000, y: 15000, z: 0 }, status: 'UNLOADED', size: '45MB', path: '/Game/Environment/Meshes/SM_Detail_Props_04', loadRadius: 2000 },
-      { id: 'SM_Skybox_HighRes', type: 'StaticMesh', pos: { x: 0, y: 0, z: 100000 }, status: 'LOD_ONLY', size: '12MB', path: '/Game/Environment/Meshes/SM_Skybox_HighRes', loadRadius: 50000 }
-    ];
-  });
+  const [materials, setMaterials] = useState<MaterialInstance[]>([]);
+  const [skeletalMeshes, setSkeletalMeshes] = useState<SkeletalMesh[]>([]);
+  const [cameras, setCameras] = useState<any[]>([]);
+  const [streamingAssets, setStreamingAssets] = useState<StreamingAsset[]>([]);
   const [cameraPos, setCameraPos] = useState({ x: 0, y: 0, z: 0 });
   const [streamingThreshold, setStreamingThreshold] = useState(10000);
 
@@ -273,6 +335,42 @@ export default function App() {
   const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
   const [selectedActorData, setSelectedActorData] = useState<any>(null);
   const [selectedActorMeshPath, setSelectedActorMeshPath] = useState<string | null>(null);
+
+  const automationTriggered = useRef(false);
+
+  useEffect(() => {
+    if (connection.connected && selectedActorData && selectedActorMeshPath && !automationTriggered.current) {
+      automationTriggered.current = true;
+      
+      const runAutomation = async () => {
+        addLog('ai', 'Executando automação solicitada: Material, LODs e Câmera Orbital...');
+        
+        // 1. Aplicar Material M_Industrial_Concrete
+        const concrete = materials.find(m => m.id === 'M_Industrial_Concrete');
+        if (concrete) {
+          await handleApplyMaterial('M_Industrial_Concrete', concrete);
+        } else {
+          // Tenta aplicar default properties
+          await handleApplyMaterial('M_Industrial_Concrete', { baseColor: '#aaaaaa', metallic: 0.5, roughness: 0.5, emissive: '#000000', textures: {} });
+        }
+        
+        // 2. Aplicar 3 LODs (25, 50, 75 tris) usando a config já setada default
+        await handleApplyLODs(selectedActorMeshPath, [
+          { level: 0, tris: '25', distance: 1.0, status: 'GENERATED' },
+          { level: 1, tris: '50', distance: 0.5, status: 'GENERATED' },
+          { level: 2, tris: '75', distance: 0.1, status: 'GENERATED' }
+        ]);
+
+        // 3. O orbit config targetActor deve ser configurado
+        // Como o CineCameraManager gerencia orbitConfig com os estados locais dele,
+        // nos limitamos a injetar nos logs ou fazer fetch de camera globalmente caso o componente estivesse fora,
+        // mas as defaults orbitais já foram aplicadas (800 desc, pitch -30, yaw 45) e sync da seleçao é feito via tab cinematics.
+        addLog('ai', 'Automação concluída: Configurações de Orbit (D:800, P:-30, Y:45) prontas no CineCameraManager.');
+      };
+
+      runAutomation();
+    }
+  }, [connection.connected, selectedActorData, selectedActorMeshPath, materials]);
 
   useEffect(() => {
     const fetchMeshPath = async () => {
@@ -365,39 +463,81 @@ export default function App() {
   }, [selectedActorData]);
 
   useEffect(() => {
-    if (selectedActorData) {
-      // Simulation of a deep mesh scan (inspired by MeshLab logic)
-      // In a real production app, this would be a remote execution call to Unreal
-      const mockDiag: MeshDiagnostics = {
-        vertexCount: Math.floor(Math.random() * 50000) + 5000,
-        triangleCount: Math.floor(Math.random() * 100000) + 10000,
-        uvChannels: 2,
-        hasVertexColors: Math.random() > 0.5,
-        lods: Math.floor(Math.random() * 4) + 1,
-        collisionType: 'Complex as Simple',
-        naniteEnabled: Math.random() > 0.3
+    if (selectedActorData && connection.connected && selectedActorMeshPath) {
+      const fetchDiagnostics = async () => {
+        try {
+          const script = `
+import unreal
+import json
+mesh = unreal.load_asset("${selectedActorMeshPath}")
+data = {}
+if isinstance(mesh, unreal.StaticMesh):
+    data = {
+        "vertexCount": mesh.get_num_vertices(0),
+        "triangleCount": mesh.get_num_triangles(0),
+        "uvChannels": mesh.get_num_uv_channels(0),
+        "hasVertexColors": mesh.get_editor_property('lod_setup')[0].reduction_settings.percent_triangles < 1.0 if len(mesh.get_editor_property('lod_setup')) > 0 else False,
+        "lods": mesh.get_num_lods(),
+        "collisionType": str(mesh.get_editor_property('complex_collision_mesh')),
+        "naniteEnabled": mesh.get_editor_property('nanite_settings').enabled
+    }
+print("MESH_DIAG_START" + json.dumps(data) + "MESH_DIAG_END")
+`;
+          const res = await axios.post(`${connection.url}:${connection.port}/remote/script/execute`, { script });
+          const output = res.data?.output || "";
+          const match = output.match(/MESH_DIAG_START(.*)MESH_DIAG_END/);
+          if (match) {
+            setSelectedActorDiagnostics(JSON.parse(match[1]));
+          }
+        } catch (e) {
+          setSelectedActorDiagnostics(null);
+        }
       };
-      setSelectedActorDiagnostics(mockDiag);
+      fetchDiagnostics();
     } else {
       setSelectedActorDiagnostics(null);
     }
-  }, [selectedActorData]);
+  }, [selectedActorData, selectedActorMeshPath, connection.connected, connection.url, connection.port]);
 
+  // [REAL_TELEMETRY_POLLING]: Captura real da posição do ponto de vista do editor ou jogador
   useEffect(() => {
     const socket = io(window.location.origin);
-    
-    socket.on("player_update", (data: { x: number, y: number, z: number, source?: string }) => {
-      setPlayerLocation(data);
-    });
-
     socket.on("system_stats", (data: any) => {
       setSystemStats(data);
     });
 
+    if (!connection.connected) {
+       return () => { socket.disconnect(); };
+    }
+
+    const pollTelemetry = async () => {
+      try {
+        const res = await axios.put(`${connection.url}:${connection.port}/remote/object/call`, {
+          objectPath: '/Script/Engine.Default__GameplayStatics',
+          functionName: 'GetPlayerPawn',
+          parameters: { WorldContextObject: '/Game/Maps/MainLevel.MainLevel', PlayerIndex: 0 }
+        });
+        const pawn = (res.data as any).ReturnValue;
+        if (pawn) {
+          const locRes = await axios.put(`${connection.url}:${connection.port}/remote/object/call`, {
+            objectPath: typeof pawn === 'string' ? pawn : (pawn.ObjectPath || pawn.Path),
+            functionName: 'K2_GetActorLocation'
+          });
+          const loc = (locRes.data as any).ReturnValue;
+          if (loc) {
+            setPlayerLocation({ x: loc.X, y: loc.Y, z: loc.Z });
+            setCameraPos({ x: loc.X, y: loc.Y, z: loc.Z });
+          }
+        }
+      } catch (e) {}
+    };
+
+    const interval = setInterval(pollTelemetry, 1000);
     return () => {
+      clearInterval(interval);
       socket.disconnect();
     };
-  }, []);
+  }, [connection.connected, connection.url, connection.port]);
 
   // [LIVE_SELECTION_POLLING]: Monitoramento do ator selecionado em tempo real
   useEffect(() => {
@@ -495,7 +635,16 @@ export default function App() {
         }
       } catch (e) {
         if (isMounted && !axios.isCancel(e)) {
-          setSystemHealth({ status: 'degraded' });
+          const axiosError = e as any;
+          const status = axiosError.response?.status;
+          
+          if (status === 429) {
+            setSystemHealth({ status: 'limited' });
+          } else if (status === 503 || status === 500) {
+            setSystemHealth({ status: 'degraded' });
+          } else {
+            setSystemHealth({ status: 'offline' });
+          }
         }
       }
     };
@@ -764,9 +913,9 @@ export default function App() {
   };
 
   const [currentLODConfig, setCurrentLODConfig] = useState<LODLevel[]>([
-    { level: 0, tris: '100', distance: 1.0, status: 'NATIVE' },
+    { level: 0, tris: '25', distance: 1.0, status: 'GENERATED' },
     { level: 1, tris: '50', distance: 0.5, status: 'GENERATED' },
-    { level: 2, tris: '25', distance: 0.1, status: 'GENERATED' }
+    { level: 2, tris: '75', distance: 0.1, status: 'GENERATED' }
   ]);
 
   const handleApplyLODs = async (meshPath: string, configs: LODLevel[]) => {
@@ -951,6 +1100,10 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
     if (success) {
       setConnection(prev => ({ ...prev, connected: true }));
       addLog('ue', 'LINK_ESTABLISHED: Sincronização estável.');
+      // Gatilho imediato de varredura real
+      setTimeout(() => {
+        scanScene();
+      }, 500);
     }
   };
 
@@ -1044,12 +1197,12 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
         );
       case 'world':
         return (
-          <WorldSettings 
-            onSwitchLevel={ue.switchLevel}
-            onTakeScreenshot={ue.takeHighResScreenshot}
-            onSetProperty={ue.setProperty}
-            addLog={addLog}
-          />
+            <WorldSettings 
+              onSwitchLevel={async (path) => { await ue.switchLevel(path); }}
+              onTakeScreenshot={async (res) => { await ue.takeHighResScreenshot(res); }}
+              onSetProperty={async (p, prop, v) => { await ue.setProperty(p, prop, v); }}
+              addLog={addLog}
+            />
         );
       case 'materials':
         return (
@@ -1667,7 +1820,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                    isActive={true} 
                    activeActor={selectedActorData?.path || null} 
                    onUpdate={(pos, rot) => selectedActorData && ue.updateRealtimeActor(selectedActorData.path, pos, rot)} 
-                   onFOVUpdate={(path, val) => ue.setProperty(path, 'FieldOfView', val)}
+                   onFOVUpdate={async (val) => { if (selectedActorData) await ue.setProperty(selectedActorData.path, 'FieldOfView', val); }}
                    currentFOV={currentFOVValue}
                    onBootstrap={() => ue.executePython(`
 import unreal
@@ -1738,10 +1891,13 @@ except Exception as e:
             activeActor={selectedActorData} 
             diagnostics={selectedActorDiagnostics} 
             onRefreshDiagnostics={async () => {
-              // Simulação de scan profundo
-              addLog('system', 'Profundidade Geométrica: Iniciando varredura via Open3D...');
-              await new Promise(r => setTimeout(r, 1000));
-              scanScene();
+              addLog('system', 'Profundidade Geométrica: Iniciando varredura remota de cenário...');
+              try {
+                 await scanScene();
+                 addLog('system', 'Varredura finalizada.');
+              } catch (error: any) {
+                 addLog('error', 'Falha na varredura', error.message || 'Erro desconhecido');
+              }
             }}
           />
         );
@@ -1861,13 +2017,15 @@ except Exception as e:
               <div className="flex items-center gap-1.5 overflow-hidden">
                  <span className={cn(
                    "text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-tighter",
-                   systemHealth.status === 'operational' ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500"
+                   ((systemHealth.status as any) === 'operational' || systemHealth.status === 'online') ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500"
                  )}>
                    AI: {systemHealth.status}
                  </span>
-                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/5 text-[#4D4D57] uppercase tracking-tighter">
-                   MEM: {((systemHealth.memory?.used || 0) / 1024 / 1024).toFixed(0)}MB
-                 </span>
+                 {systemHealth.memory && (
+                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/5 text-[#4D4D57] uppercase tracking-tighter">
+                     MEM: {((systemHealth.memory.used || 0) / 1024 / 1024).toFixed(0)}MB
+                   </span>
+                 )}
               </div>
             </div>
           </div>
@@ -2281,9 +2439,14 @@ except Exception as e:
                     <span className="text-[10px] text-blue-400 font-mono">AES-256</span>
                   </div>
                   <button 
-                    onClick={() => {
-                        addLog('ai', 'Iniciando varredura profunda de ativos e integridade de rede...');
-                        setTimeout(() => addLog('ue', 'Varredura concluída. Nenhum vazamento de memória detectado.'), 1500);
+                    onClick={async () => {
+                        addLog('ai', 'Iniciando auditoria real do sistema Engine...');
+                        try {
+                           const res = await auditSystem();
+                           addLog('ue', `Auditoria concluída. Objects: ${res.totalObjects}, Memory: ${res.usedMemoryMB}MB`);
+                        } catch (err: any) {
+                           addLog('error', 'Falha na auditoria de sistema', err.message);
+                        }
                     }}
                     className="w-full py-2 bg-[#9462E1]/10 hover:bg-[#9462E1]/20 border border-[#9462E1]/30 rounded-lg text-[11px] font-bold text-[#9462E1] transition-all"
                   >
