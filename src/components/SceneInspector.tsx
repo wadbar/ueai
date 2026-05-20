@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Layers, RefreshCcw, Box, Target, Database, ChevronRight, ChevronDown, Cpu, AlertCircle } from 'lucide-react';
+import { Layers, RefreshCcw, Box, Target, Database, ChevronRight, ChevronDown, Cpu, AlertCircle, Camera } from 'lucide-react';
 import { Actor } from '../types';
 
 interface SceneInspectorProps {
   onRefresh: () => void;
   actors: Actor[];
+  onPropertyUpdate?: (actorPath: string, propertyName: string, value: any) => Promise<void>;
 }
 
 /**
@@ -12,7 +13,7 @@ interface SceneInspectorProps {
  * Inspired by professional CAD/3D engine inspector patterns (FreeCAD/Open3D).
  * Provides robust hierarchical inspection of actors, components, and raw data invariants.
  */
-export const SceneInspector: React.FC<SceneInspectorProps> = ({ onRefresh, actors }) => {
+export const SceneInspector: React.FC<SceneInspectorProps> = ({ onRefresh, actors, onPropertyUpdate }) => {
   const [selectedActorId, setSelectedActorId] = useState<string | null>(actors[0]?.id || null);
   const [expandedComponents, setExpandedComponents] = useState<Set<string>>(new Set());
 
@@ -41,6 +42,20 @@ export const SceneInspector: React.FC<SceneInspectorProps> = ({ onRefresh, actor
       console.error('UNCAUGHT_EXCEPTION in SceneInspector.refresh:', error);
     }
   }, [onRefresh]);
+
+  const isCamera = selectedActor?.type.toLowerCase().includes('camera');
+  
+  // Find Camera Component for FOV
+  const cameraComp = selectedActor?.components.find(c => c.type.toLowerCase().includes('cameracomponent'));
+  const currentFOV = cameraComp?.properties.FieldOfView || selectedActor?.properties?.FieldOfView || 90;
+
+  const handleFOVChange = async (val: number) => {
+    if (!selectedActor || !onPropertyUpdate) return;
+    
+    // Update local property simulation if needed, but primarily call parent
+    const objectPath = cameraComp ? `${selectedActor.path}.${cameraComp.id}` : selectedActor.path;
+    await onPropertyUpdate(objectPath, 'FieldOfView', val);
+  };
 
   return (
     <div className="flex flex-1 overflow-hidden h-full bg-[#050505]">
@@ -111,6 +126,34 @@ export const SceneInspector: React.FC<SceneInspectorProps> = ({ onRefresh, actor
                    <div className="text-[#8D8D99]">SCL</div> <div className="col-span-2 text-white">{selectedActor.transform.scale.x.toFixed(2)}, {selectedActor.transform.scale.y.toFixed(2)}, {selectedActor.transform.scale.z.toFixed(2)}</div>
                 </div>
               </div>
+
+              {/* Camera Settings if applicable */}
+              {isCamera && (
+                <div className="bg-[#121214] p-6 rounded-[24px] border border-[#29292E] space-y-4 shadow-sm">
+                  <h4 className="text-[10px] font-black text-[#4D4D57] uppercase tracking-widest flex items-center gap-2">
+                    <Camera className="w-3 h-3 text-cyan-500" /> Optics
+                  </h4>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-[#8D8D99] uppercase">Field of View</span>
+                      <span className="text-xs text-white font-mono">{Number(currentFOV).toFixed(1)}°</span>
+                    </div>
+                    <input 
+                      type="range"
+                      min="5"
+                      max="170"
+                      step="0.1"
+                      value={currentFOV}
+                      onChange={(e) => handleFOVChange(parseFloat(e.target.value))}
+                      className="w-full h-1 bg-[#29292E] rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                    />
+                    <div className="flex justify-between text-[8px] text-[#4D4D57] font-bold uppercase">
+                      <span>Wide</span>
+                      <span>Tele</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Material Block */}
               <div className="bg-[#121214] p-6 rounded-[24px] border border-[#29292E] space-y-4">

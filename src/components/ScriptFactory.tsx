@@ -50,7 +50,7 @@ export const ScriptFactory: React.FC<ScriptFactoryProps> = ({
             </div>
             <h2 className="text-4xl font-black text-white tracking-tighter uppercase italic">Gerador Industrial</h2>
             <p className="text-[#8D8D99] max-w-lg">
-              Motor de geração de artefatos de engenharia para Unreal Engine 5. 
+              Sistema de geração de artefatos de engenharia para Unreal Engine 5. 
               Tradução determinística de fluxos naturais em lógica de baixo nível.
             </p>
           </div>
@@ -140,6 +140,70 @@ export const ScriptFactory: React.FC<ScriptFactoryProps> = ({
                     <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                        <span className="text-[9px] font-bold text-[#29292E] bg-green-300 px-2 py-1 rounded">CPP_UE5_ENGINE</span>
                     </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between px-2">
+                     <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                      <span className="text-[10px] font-black text-[#4D4D57] uppercase tracking-widest">Deployment: Realtime Spectator Controller (Python)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                       <button 
+                        onClick={() => {
+                          const script = `
+import unreal
+
+def setup_spectator():
+    # Carregar Ator SpectatorPawn
+    pawn_class = unreal.EditorAssetLibrary.load_blueprint_class('/Game/Blueprints/BP_Spectator_Architect')
+    if not pawn_class:
+        unreal.log_warning("BP_Spectator_Architect não encontrado. Criando SpectatorPawn padrão.")
+        pawn_class = unreal.SpectatorPawn
+    
+    # Spawn Ator
+    location = unreal.Vector(0, 0, 500)
+    rotation = unreal.Rotator(0, 0, 0)
+    actor = unreal.EditorLevelLibrary.spawn_actor_from_class(pawn_class, location, rotation)
+    
+    # Possess by Player 0
+    player_controller = unreal.GameplayStatics.get_player_controller(unreal.EditorLevelLibrary.get_editor_world(), 0)
+    player_controller.possess(actor)
+    
+    unreal.log("Spectator Controller implantado com sucesso.")
+
+setup_spectator()
+`.trim();
+                          navigator.clipboard.writeText(script);
+                          alert('Script Python copiado! Execute no Python Console do Unreal.');
+                        }}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-amber-500 text-black rounded-lg text-[10px] font-black uppercase hover:bg-amber-400 transition-all"
+                       >
+                          <Play className="w-3 h-3 fill-current" />
+                          Copiar para Unreal
+                       </button>
+                    </div>
+                  </div>
+                  <div className="relative group">
+                    <pre className="p-8 bg-[#0A0A0B] border border-[#29292E] rounded-3xl text-amber-500 font-mono text-sm overflow-x-auto leading-relaxed shadow-[inset_0_2px_20px_rgba(0,0,0,0.5)]">
+                      {`# Unreal Spectator Controller v12
+import unreal
+import json
+
+# Blender Bridge Protocol - Inspired by meshroom2blender
+def sync_with_blender(actor_label):
+    # Remote call to Blender instance or export to exchange folder
+    unreal.log(f"Exporting {actor_label} to Blender via GLTF Bridge...")
+
+# Configurando o ambiente de controle remoto
+actor_path = "/Game/Maps/Main.Main:PersistentLevel.CineCameraActor_0"
+unreal.log(f"Iniciando acoplamento com: {actor_path}")
+
+# Habilitando Input em Tempo Real via API
+# Este script deve ser executado para permitir que o Web Controller assuma o controle.
+`}
+                    </pre>
                   </div>
                 </div>
               </motion.div>

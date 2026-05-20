@@ -1,6 +1,6 @@
 {
   "name": "UE Architect",
-  "description": "Engine Cognitiva V12.1 - Plataforma de Engenharia de Alta Performance para automação e orquestração na Unreal Engine 5.",
+  "description": "Plataforma de Engenharia de Alta Performance para automação e orquestração na Unreal Engine 5.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

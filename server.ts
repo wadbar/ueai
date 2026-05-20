@@ -56,32 +56,33 @@ async function startServer() {
       logger.info(logMsg);
       io.emit("audit_log", {
         timestamp: new Date().toISOString(),
-        level: 'info',
+        level: res.statusCode >= 400 ? 'error' : (duration > 500 ? 'warn' : 'info'),
         message: logMsg,
-        metadata: { method: req.method, url: req.url, status: res.statusCode }
+        metadata: { 
+          method: req.method, 
+          url: req.url, 
+          status: res.statusCode,
+          duration,
+          userAgent: req.headers['user-agent']
+        }
       });
-      
-      if (duration > 500) {
-        const warnMsg = `[PERFORMANCE_LATENCY]: ${req.method} ${req.url} - ${duration}ms`;
-        logger.warn(warnMsg);
-        io.emit("audit_log", {
-          timestamp: new Date().toISOString(),
-          level: 'warn',
-          message: warnMsg,
-          metadata: { duration }
-        });
-      }
     });
     next();
   });
 
-  // Socket.IO Telemetry Loop
+  // Socket.IO Telemetry Loop - Real Metrics
   setInterval(() => {
+    const mem = process.memoryUsage();
     io.emit("system_stats", {
-      memory: process.memoryUsage(),
+      memory: {
+        heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
+        heapTotal: Math.round(mem.heapTotal / 1024 / 1024),
+        rss: Math.round(mem.rss / 1024 / 1024)
+      },
       cpu: process.cpuUsage(),
-      uptime: process.uptime(),
-      timestamp: Date.now()
+      uptime: Math.round(process.uptime()),
+      timestamp: Date.now(),
+      activeScrapers: scraperWorker.getActiveWorkers()
     });
   }, 2000);
 
@@ -148,10 +149,16 @@ async function startServer() {
   });
 
   // [DYNAMIC_STREAMING]: Simulação de sinal de telemetria Unreal Engine -> Dashboard
+  // Nota: Em produção, isto seria alimentado por um WebSocket real da UE5 ou polling Remote Control.
   let mockX = 0;
   setInterval(() => {
     mockX = (mockX + 500) % 20000;
-    io.emit("player_update", { x: mockX, y: Math.sin(mockX / 2000) * 4000, z: 0 });
+    io.emit("player_update", { 
+      x: mockX, 
+      y: Math.sin(mockX / 2000) * 4000, 
+      z: 0,
+      source: 'EMULATED_TELEMETRY' 
+    });
   }, 3000);
 
   // [V9_ENVIRONMENT_CHECK]: Verifica configuração de variáveis

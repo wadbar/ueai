@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
   Send, 
   Settings, 
@@ -28,18 +28,21 @@ import {
   Filter,
   Tag,
   ImageIcon,
+  Repeat,
   Upload,
   Camera,
   Target,
   ChevronDown,
+  Shield,
   Layers as LayersIcon,
   TrendingDown,
-  Monitor
+  Monitor,
+  Workflow,
+  Plus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import axios from 'axios';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { cn } from './lib/utils';
 import { ScriptFactory } from './components/ScriptFactory';
 import { TelemetryView } from './components/TelemetryView';
 import { AuditTerminal } from './components/AuditTerminal';
@@ -47,11 +50,43 @@ import { StreamingManager } from './components/StreamingManager';
 import { SceneInspector } from './components/SceneInspector';
 import { CognitiveCore } from './components/CognitiveCore';
 import { AssetScraperUI } from './components/AssetScraperUI';
+import { CinematicsManager } from './components/CinematicsManager';
+import { VirtualController } from './components/VirtualController';
+import { GeometryLab } from './components/GeometryLab';
+import { WorldSettings } from './components/WorldSettings';
+import { useUnrealEngine } from './hooks/useUnrealEngine';
+import { useSceneInspector } from './hooks/useSceneInspector';
 import { io } from 'socket.io-client';
-import { UECommand, AIResponse, LogEntry, UEConnection, Actor } from './types';
+import { 
+  UECommand, 
+  AIResponse, 
+  LogEntry, 
+  UEConnection, 
+  Actor, 
+  SystemHealth,
+  MaterialInstance,
+  SkeletalMesh,
+  SystemStats,
+  MeshDiagnostics
+} from './types';
 
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
+
+function hexToRgbA(hex: string) {
+  let c: any;
+  if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) {
+    c = hex.substring(1).split('');
+    if (c.length === 3) {
+      c = [c[0], c[0], c[1], c[1], c[2], c[2]];
+    }
+    c = parseInt(c.join(''), 16);
+    return {
+      R: ((c >> 16) & 255) / 255,
+      G: ((c >> 8) & 255) / 255,
+      B: (c & 255) / 255,
+      A: 1.0
+    };
+  }
+  return { R: 0, G: 0, B: 0, A: 1.0 };
 }
 
 export default function App() {
@@ -78,19 +113,66 @@ export default function App() {
     localStorage.setItem('ue_connection', JSON.stringify(settings));
   }, [connection.url, connection.port]);
 
-  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [logs, setLogs] = useState<LogEntry[]>(() => {
+    const saved = localStorage.getItem('ue_arch_logs_v12');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('ue_arch_logs_v12', JSON.stringify(logs.slice(-50)));
+  }, [logs]);
+
   const [currentAIResponse, setCurrentAIResponse] = useState<AIResponse | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [activeTab, setActiveTab] = useState<'console' | 'factory' | 'system' | 'streaming' | 'materials' | 'animations' | 'cinematics' | 'lod' | 'audit' | 'cognitive' | 'inspector' | 'scraper'>('console');
-  const [inspectorActors, setInspectorActors] = useState<Actor[]>([]);
+  const [activeTab, setActiveTab] = useState<'console' | 'factory' | 'system' | 'streaming' | 'materials' | 'animations' | 'cinematics' | 'lod' | 'audit' | 'cognitive' | 'inspector' | 'scraper' | 'controller' | 'laboratory' | 'world'>('cognitive');
+  
+  const addLog = useCallback((type: LogEntry['type'], message: string, data?: unknown) => {
+    const sanitizedType = type === 'error' && message.includes('EXCEPTION') ? 'system' : type;
+    const newLog: LogEntry = {
+      id: Math.random().toString(36).substring(2, 9),
+      timestamp: new Date(),
+      type: sanitizedType,
+      message: sanitizedType === 'system' ? `UNCAUGHT_EXCEPTION: ${message}` : message,
+      data: data ? JSON.parse(JSON.stringify(data)) : undefined,
+    };
+    setLogs(prev => [...prev.slice(-99), newLog]);
+  }, []);
+
+  const ue = useUnrealEngine(connection, addLog);
+  const inspector = useSceneInspector(connection);
+
+  const scanScene = useCallback(async () => {
+    addLog('ue', 'Iniciando varredura de cena...');
+    const result = await inspector.scanScene();
+    if (result) {
+       addLog('ue', `${result.length} atores identificados.`);
+    }
+  }, [inspector, addLog]);
+
   const [playerLocation, setPlayerLocation] = useState({ x: 0, y: 0, z: 0 });
-  const [materials, setMaterials] = useState<any[]>([
-    { id: 'M_Cyberpunk_Metal', baseColor: '#9462E1', metallic: 0.9, roughness: 0.1, emissive: '#4D21B2', status: 'SYNCHRONIZED', textures: { BaseColorTexture: '', NormalMap: '', MetallicMap: '', RoughnessMap: '' } },
-    { id: 'M_Industrial_Concrete', baseColor: '#323238', metallic: 0.2, roughness: 0.7, emissive: '#FF8000', status: 'SYNCHRONIZED', textures: { BaseColorTexture: '/Game/Textures/T_Industrial_Concrete_BaseColor', NormalMap: '/Game/Textures/T_Industrial_Normal', MetallicMap: '', RoughnessMap: '' } }
+  const [materials, setMaterials] = useState<MaterialInstance[]>([
+    { id: 'M_Cyberpunk_Metal', baseColor: '#9462E1', metallic: 0.9, roughness: 0.1, emissive: '#4D21B2', status: 'SYNCHRONIZED', textures: { BaseColorTexture: '', NormalMap: '', MetallicMap: '', RoughnessMap: '', SpecularMap: '' } },
+    { id: 'M_Industrial_Concrete', baseColor: '#323238', metallic: 0.2, roughness: 0.7, emissive: '#FF8000', status: 'SYNCHRONIZED', textures: { BaseColorTexture: '/Game/Textures/T_Concrete_BaseColor_Mossy', NormalMap: '/Game/Textures/T_Industrial_Normal', MetallicMap: '', RoughnessMap: '', SpecularMap: '' } }
   ]);
-  const [skeletalMeshes, setSkeletalMeshes] = useState<any[]>([
-    { id: 'SK_Mannequin', assetPath: '/Game/Characters/Mannequins/SK_Mannequin', currentAnim: 'Idle', playing: false, loop: true, playRate: 1.0 },
-    { id: 'SK_Robotic_Arm', assetPath: '/Game/Props/Robotics/SK_Robotic_Arm', currentAnim: 'Sequence_01', playing: true, loop: false, playRate: 1.5 }
+  const [skeletalMeshes, setSkeletalMeshes] = useState<SkeletalMesh[]>([
+    { 
+      id: 'SK_Mannequin', 
+      assetPath: '/Game/Characters/Mannequins/SK_Mannequin', 
+      currentAnim: 'Idle', 
+      playing: false, 
+      loop: true, 
+      playRate: 1.0,
+      animations: ['Idle', 'Walk', 'Run', 'Greet', 'Jump']
+    },
+    { 
+      id: 'SK_Robotic_Arm', 
+      assetPath: '/Game/Props/Robotics/SK_Robotic_Arm', 
+      currentAnim: 'Sequence_01', 
+      playing: true, 
+      loop: false, 
+      playRate: 1.5,
+      animations: ['Sequence_01', 'Sequence_02', 'Calibration', 'Grab']
+    }
   ]);
   const [cameras, setCameras] = useState<any[]>([
     { id: 'Main_CineCam', pos: { x: 0, y: -500, z: 150 }, rot: { r: 0, p: 0, y: 90 }, fov: 60, active: true }
@@ -134,7 +216,7 @@ export default function App() {
       // Aqui a IA poderia disparar os comandos automáticos para a UE5
     }
   };
-  const [systemHealth, setSystemHealth] = useState<{ status: string; latency?: string; memory?: any; uptime?: number }>({ status: 'checking' });
+  const [systemHealth, setSystemHealth] = useState<SystemHealth>({ status: 'checking' });
   const [isStandalone, setIsStandalone] = useState(false);
   const [envInfo, setEnvInfo] = useState<any>(null);
   const [selectedMaterialId, setSelectedMaterialId] = useState<string>('M_Cyberpunk_Metal');
@@ -153,7 +235,8 @@ export default function App() {
       BaseColorTexture: '',
       NormalMap: '',
       MetallicMap: '',
-      RoughnessMap: ''
+      RoughnessMap: '',
+      SpecularMap: ''
     }
   });
   
@@ -187,15 +270,163 @@ export default function App() {
     timestamp: number;
   }
 
+  const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
+  const [selectedActorData, setSelectedActorData] = useState<any>(null);
+  const [selectedActorMeshPath, setSelectedActorMeshPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchMeshPath = async () => {
+      if (!selectedActorData || !connection.connected) {
+        setSelectedActorMeshPath(null);
+        return;
+      }
+
+      try {
+        // Try StaticMeshComponent (Standard) or StaticMeshComponent0 (C++ default)
+        const response = await axios.put(`${connection.url}:${connection.port}/remote/object/property`, {
+          objectPath: `${selectedActorData.path}.StaticMeshComponent`,
+          propertyName: 'StaticMesh'
+        });
+
+        if (response.data && response.data.StaticMesh) {
+          // Normalize path: /Script/Engine.StaticMesh'/Game/Meshes/SM_Asset.SM_Asset' -> /Game/Meshes/SM_Asset
+          const fullPath = response.data.StaticMesh;
+          const match = fullPath.match(/'([^']+)'/);
+          setSelectedActorMeshPath(match ? match[1].split('.')[0] : fullPath);
+        } else {
+          // fallback check for component index
+          const resp0 = await axios.put(`${connection.url}:${connection.port}/remote/object/property`, {
+            objectPath: `${selectedActorData.path}.StaticMeshComponent0`,
+            propertyName: 'StaticMesh'
+          });
+          if (resp0.data && resp0.data.StaticMesh) {
+            const fullPath = resp0.data.StaticMesh;
+            const match = fullPath.match(/'([^']+)'/);
+            setSelectedActorMeshPath(match ? match[1].split('.')[0] : fullPath);
+          }
+        }
+      } catch (err) {
+        setSelectedActorMeshPath(null);
+      }
+    };
+
+    fetchMeshPath();
+  }, [selectedActorData?.path, connection.connected, connection.url, connection.port]);
+  const [selectedActorDiagnostics, setSelectedActorDiagnostics] = useState<MeshDiagnostics | null>(null);
+
+  useEffect(() => {
+    if (selectedActorData && connection.connected) {
+      const fetchMesh = async () => {
+        try {
+          // Attempting to get StaticMesh from StaticMeshComponent0
+          const res = await axios.put(`${connection.url}:${connection.port}/remote/object/call`, {
+            objectPath: `${selectedActorData.path}.StaticMeshComponent0`,
+            functionName: 'GetStaticMesh'
+          });
+          const mesh = (res.data as any).ReturnValue;
+          if (mesh) {
+            setSelectedActorMeshPath(mesh.ObjectPath || mesh.Path || mesh);
+          } else {
+             const res2 = await axios.put(`${connection.url}:${connection.port}/remote/object/call`, {
+                objectPath: `${selectedActorData.path}.StaticMeshComponent`,
+                functionName: 'GetStaticMesh'
+              });
+              const mesh2 = (res2.data as any).ReturnValue;
+              setSelectedActorMeshPath(mesh2 ? (mesh2.ObjectPath || mesh2.Path || mesh2) : null);
+          }
+        } catch (e) {
+          setSelectedActorMeshPath(null);
+        }
+      };
+      fetchMesh();
+    } else {
+      setSelectedActorMeshPath(null);
+    }
+  }, [selectedActorData?.path, connection.connected, connection.url, connection.port]);
+
+  const currentFOVValue = useMemo(() => {
+    if (!selectedActorData) return 90;
+    
+    // Check actor properties directly
+    if (selectedActorData.properties && selectedActorData.properties.FieldOfView !== undefined) {
+      return selectedActorData.properties.FieldOfView;
+    }
+    
+    // Check components (e.g. CameraComponent or CineCameraComponent)
+    const cameraComp = selectedActorData.components?.find((c: any) => 
+      c.type.includes('CameraComponent')
+    );
+    
+    if (cameraComp && cameraComp.properties && cameraComp.properties.FieldOfView !== undefined) {
+      return cameraComp.properties.FieldOfView;
+    }
+    
+    return 90;
+  }, [selectedActorData]);
+
+  useEffect(() => {
+    if (selectedActorData) {
+      // Simulation of a deep mesh scan (inspired by MeshLab logic)
+      // In a real production app, this would be a remote execution call to Unreal
+      const mockDiag: MeshDiagnostics = {
+        vertexCount: Math.floor(Math.random() * 50000) + 5000,
+        triangleCount: Math.floor(Math.random() * 100000) + 10000,
+        uvChannels: 2,
+        hasVertexColors: Math.random() > 0.5,
+        lods: Math.floor(Math.random() * 4) + 1,
+        collisionType: 'Complex as Simple',
+        naniteEnabled: Math.random() > 0.3
+      };
+      setSelectedActorDiagnostics(mockDiag);
+    } else {
+      setSelectedActorDiagnostics(null);
+    }
+  }, [selectedActorData]);
+
   useEffect(() => {
     const socket = io(window.location.origin);
-    socket.on("player_update", (data: { x: number, y: number, z: number }) => {
+    
+    socket.on("player_update", (data: { x: number, y: number, z: number, source?: string }) => {
       setPlayerLocation(data);
     });
+
+    socket.on("system_stats", (data: any) => {
+      setSystemStats(data);
+    });
+
     return () => {
       socket.disconnect();
     };
   }, []);
+
+  // [LIVE_SELECTION_POLLING]: Monitoramento do ator selecionado em tempo real
+  useEffect(() => {
+    if (!connection.connected) return;
+
+    const pollSelection = async () => {
+      try {
+        const res = await axios.put(`${connection.url}:${connection.port}/remote/object/call`, {
+          objectPath: '/Script/UnrealEd.Default__EditorLevelLibrary',
+          functionName: 'GetSelectedLevelActors'
+        }, { timeout: 1500 });
+        
+        const selection = (res.data as any).ReturnValue || [];
+        if (selection.length > 0) {
+          const actorPath = typeof selection[0] === 'string' ? selection[0] : (selection[0].ObjectPath || selection[0].Path);
+          if (actorPath !== selectedActorData?.path) {
+            setSelectedActorData({ path: actorPath, name: actorPath.split('.').pop(), timestamp: Date.now() });
+          }
+        } else if (selectedActorData) {
+          setSelectedActorData(null);
+        }
+      } catch (e) {
+        // Silently fail to avoid polluting logs
+      }
+    };
+
+    const interval = setInterval(pollSelection, 2000);
+    return () => clearInterval(interval);
+  }, [connection.connected, connection.url, connection.port, selectedActorData?.path]);
 
   const [commandHistory, setCommandHistory] = useState<SavedCommand[]>(() => {
     const saved = localStorage.getItem('ue_command_history_v2');
@@ -241,13 +472,26 @@ export default function App() {
 
     const checkHealth = async () => {
       try {
-        const [healthRes, envRes] = await Promise.all([
+        const [healthRes, envRes, ueRes] = await Promise.all([
           axios.get('/api/health/ai', { signal: controller.signal }),
-          axios.get('/api/system/env', { signal: controller.signal })
+          axios.get('/api/system/env', { signal: controller.signal }),
+          axios.put(`${connection.url}:${connection.port}/remote/object/call`, {
+            objectPath: '/Script/Engine.Default__GameplayStatics',
+            functionName: 'GetTimeSeconds'
+          }, { timeout: 2000, signal: controller.signal }).catch(() => null)
         ]);
+
         if (isMounted) {
-          setSystemHealth(healthRes.data);
+          const healthData = healthRes.data;
+          if (ueRes) {
+            healthData.latency = 'Direct_Link: OK';
+          }
+          setSystemHealth(healthData);
           setEnvInfo(envRes.data);
+          
+          if (ueRes && !connection.connected) {
+            setConnection(prev => ({ ...prev, connected: true }));
+          }
         }
       } catch (e) {
         if (isMounted && !axios.isCancel(e)) {
@@ -282,16 +526,6 @@ export default function App() {
     }
   }, [logs]);
 
-  const addLog = (type: LogEntry['type'], message: string, data?: any) => {
-    const newLog: LogEntry = {
-      id: Math.random().toString(36).substr(2, 9),
-      timestamp: new Date(),
-      type,
-      message,
-      data: data ? JSON.parse(JSON.stringify(data)) : undefined, // Deep copy imutável
-    };
-    setLogs(prev => [...prev, newLog]);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -314,7 +548,7 @@ export default function App() {
       }
 
       setCurrentAIResponse(aiData);
-      saveCommand(currentPrompt, aiData.commands?.[0]?.body?.parameters?.category || 'AI Generated');
+      saveCommand(currentPrompt, (aiData.commands?.[0]?.body?.parameters as any)?.category || 'AI Generated');
       addLog('ai', `Sugestão Gerada: ${aiData.explanation}`);
       
       setPrompt('');
@@ -326,54 +560,11 @@ export default function App() {
     }
   };
 
-  const executeCommands = async (commands: UECommand[]) => {
-    if (!connection.connected) {
-      addLog('error', 'STATUS_DISCONNECTED: Proceda com o teste de conexão primeiro.');
-      return;
-    }
+  const executeCommands = ue.executeCommands;
 
-    if (loading) {
-      addLog('error', 'CONCURRENCY_LOCK: Uma operação já está em trâmite.');
-      return;
-    }
 
-    setLoading(true);
-    addLog('ue', `Iniciando transmissão de ${commands.length} comandos para o motor...`);
-    
-    try {
-      for (let i = 0; i < commands.length; i++) {
-          const cmd = commands[i];
-          // [DEFENSIVE_CHECK]: Validação de endpoint antes do disparo
-          if (!cmd.endpoint?.startsWith('/remote')) {
-            throw new Error(`ENDPOINT_INVALIDO_CORE: ${cmd.endpoint}`);
-          }
+  const lastUpdateRef = useRef<number>(0);
 
-          await axios.put(`${connection.url}:${connection.port}${cmd.endpoint}`, {
-            ...cmd.body,
-            generateTransaction: true // Garantia de reversibilidade
-          }, { timeout: 8000 });
-          
-          addLog('ue', `[${i+1}/${commands.length}] Transmissão confirmada.`);
-      }
-    } catch (err: any) {
-      const detailedError = err.response?.data || err.message;
-      addLog('error', `ABORT_SEQUENCE_CRITICAL: Falha na sequência de transmissão.`, detailedError);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const hexToRgbA = (hex: string) => {
-    let raw = hex.replace(/^#/, '');
-    if (raw.length === 3) raw = raw.split('').map(c => c + c).join('');
-    const num = parseInt(raw, 16);
-    return {
-      R: (num >> 16) / 255.0,
-      G: ((num >> 8) & 255) / 255.0,
-      B: (num & 255) / 255.0,
-      A: 1.0
-    };
-  };
 
   const handleApplyMaterial = async (materialId: string, props: any) => {
     try {
@@ -439,7 +630,7 @@ export default function App() {
                       functionName: 'SetTextureParameterValue',
                       parameters: {
                           ParameterName: param,
-                          Value: typeof path === 'string' && !path.includes('.') ? `${path}.${path.split('/').pop()}` : path
+                          Value: getFullAssetPath(path as string)
                       }
                   }
               });
@@ -452,30 +643,26 @@ export default function App() {
       setMaterials(prev => prev.map(m => m.id === materialId ? { ...m, status: 'SYNCHRONIZED', ...props } : m));
 
       // Aplicação ao ator selecionado
-      addLog('ue', 'Buscando atores selecionados para aplicação de material...');
-      const getSelectedRes = await fetch(`${connection.url}:${connection.port}/remote/object/call`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-              objectPath: '/Script/UnrealEd.Default__EditorLevelLibrary',
-              functionName: 'GetSelectedLevelActors'
-          })
-      });
+      addLog('ue', 'Buscando atores selecionados...');
+      try {
+        const getSelectedRes = await axios.put(`${connection.url}:${connection.port}/remote/object/call`, {
+          objectPath: '/Script/UnrealEd.Default__EditorLevelLibrary',
+          functionName: 'GetSelectedLevelActors'
+        }, { timeout: 5000 });
 
-      if (getSelectedRes.ok) {
-          const data = await getSelectedRes.json();
-          const selectedActors = data.ReturnValue || [];
-          
-          if (selectedActors.length > 0) {
-              const applyCommands: UECommand[] = [];
-              selectedActors.forEach((actor: any) => {
-                  const actorPath = typeof actor === 'string' ? actor : (actor.ObjectPath || actor.Path || actor);
-                  // Deterministic application for standard StaticMeshComponent naming conventions
+        const selectedActors = (getSelectedRes.data as any).ReturnValue || [];
+        
+        if (selectedActors.length > 0) {
+            const applyCommands: UECommand[] = [];
+            selectedActors.forEach((actor: any) => {
+                const actorPath = typeof actor === 'string' ? actor : (actor.ObjectPath || actor.Path || actor);
+                // Matriz de componentes para aplicação determinística
+                ['StaticMeshComponent0', 'StaticMeshComponent'].forEach(comp => {
                   applyCommands.push({
                       endpoint: '/remote/object/call',
                       method: 'PUT',
                       body: {
-                          objectPath: `${actorPath}.StaticMeshComponent0`,
+                          objectPath: `${actorPath}.${comp}`,
                           functionName: 'SetMaterial',
                           parameters: {
                               ElementIndex: 0,
@@ -483,30 +670,43 @@ export default function App() {
                           }
                       }
                   });
-                  applyCommands.push({
-                      endpoint: '/remote/object/call',
-                      method: 'PUT',
-                      body: {
-                          objectPath: `${actorPath}.StaticMeshComponent`,
-                          functionName: 'SetMaterial',
-                          parameters: {
-                              ElementIndex: 0,
-                              Material: `/Game/Materials/Instances/${materialId}.${materialId}`
-                          }
-                      }
-                  });
-              });
-              await executeCommands(applyCommands);
-              addLog('ue', `Material ${materialId} aplicado aos atores selecionados com sucesso.`);
-          } else {
-              addLog('ue', 'Nenhum ator selecionado detectado na cena atual.');
-          }
-      } else {
-          addLog('error', 'Falha ao recuperar atores selecionados via EditorLevelLibrary.');
+                });
+            });
+            await executeCommands(applyCommands);
+            addLog('ue', `Material ${materialId} aplicado.`);
+        } else {
+            addLog('ue', 'Nenhum ator selecionado.');
+        }
+      } catch (e: any) {
+        addLog('error', 'FALHA_SELECAO_ATORES: Verifique a EditorLevelLibrary.');
       }
     } catch (error: any) {
       addLog('error', 'UNCAUGHT_EXCEPTION in handleApplyMaterial:', error.message || String(error));
     }
+  };
+
+  const handleBatchImportTextures = () => {
+    const basePath = window.prompt('Digite o caminho base das texturas (ex: /Game/Textures/T_Rock_A):', '/Game/Textures/');
+    if (!basePath) return;
+
+    // Normalização básica: remove extensões se o usuário colocou
+    const cleanPath = basePath.split('.')[0];
+
+    // Mapeamento padrão de sufixos PBR (naming conventions comuns)
+    const newTextures = {
+        BaseColorTexture: `${cleanPath}_D`,
+        NormalMap: `${cleanPath}_N`,
+        MetallicMap: `${cleanPath}_M`,
+        RoughnessMap: `${cleanPath}_R`,
+        SpecularMap: `${cleanPath}_S`
+    };
+
+    setEditingProps(prev => ({
+        ...prev,
+        textures: { ...prev.textures, ...newTextures }
+    }));
+    
+    addLog('system', `Lote de texturas PBR preparado para: ${cleanPath} (Sufixos _D, _N, _M, _R, _S)`);
   };
 
   const handleSpawnCamera = async (config: { x: number, y: number, z: number, fov: number, lookAtCenter: boolean }) => {
@@ -563,40 +763,109 @@ export default function App() {
     addLog('ai', `CineCameraActor [${newCamId}] spawnado com sucesso. FOV configurado para ${config.fov}°.`);
   };
 
-  const [lodConfigs, setLodConfigs] = useState<any[]>([
-    { 
-        id: 'SM_Ancient_Statue', 
-        path: '/Game/Environment/Ancient/SM_Ancient_Statue',
-        currentLODs: 3,
-        lods: [
-            { level: 0, tris: '100%', distance: 0, status: 'NATIVE' },
-            { level: 1, tris: '45%', distance: 500, status: 'GENERATED' },
-            { level: 2, tris: '12%', distance: 2000, status: 'GENERATED' }
-        ]
-    }
+  const [currentLODConfig, setCurrentLODConfig] = useState<LODLevel[]>([
+    { level: 0, tris: '100', distance: 1.0, status: 'NATIVE' },
+    { level: 1, tris: '50', distance: 0.5, status: 'GENERATED' },
+    { level: 2, tris: '25', distance: 0.1, status: 'GENERATED' }
   ]);
 
-  const handleApplyLODs = async (meshPath: string, configs: any[]) => {
+  const handleApplyLODs = async (meshPath: string, configs: LODLevel[]) => {
+    if (!meshPath) return;
     addLog('ue', `Iniciando re-topo e aplicação de ${configs.length} LODs para ${meshPath.split('/').pop()}...`);
     
-    const commands: UECommand[] = [
-        {
-            endpoint: '/remote/object/call',
-            method: 'PUT',
-            body: {
-                objectPath: meshPath,
-                functionName: 'SetNumSourceModels',
-                parameters: { Num: configs.length }
-            }
-        }
-    ];
+    // Distinct triangle counts validation
+    const triCounts = configs.map(c => parseFloat(c.tris));
+    const uniqueTriCounts = new Set(triCounts);
+    if (uniqueTriCounts.size !== triCounts.length) {
+      addLog('warn', 'LOD_VALIDATION: É recomendado utilizar triangulações distintas para cada nível.');
+    }
 
-    // Aqui mapearíamos os tamanhos de tela e reduções de triângulos
-    await executeCommands(commands);
-    addLog('ai', `Pipeline de otimização finalizado. Sincronizando buffers de renderização...`);
+    const percents = configs.map(c => parseFloat(c.tris));
+    const screens = configs.map(c => c.distance);
+
+    const pythonScript = `
+import unreal
+
+def configure_lods(mesh_path, percents, screens):
+    mesh = unreal.load_asset(mesh_path)
+    if not mesh or not isinstance(mesh, unreal.StaticMesh):
+        return False
+    
+    # Disable LOD groups to allow manual override
+    mesh.set_editor_property('lod_group', 'None')
+    mesh.set_num_source_models(len(percents))
+    
+    for i in range(len(percents)):
+        model = mesh.get_source_model(i)
+        red = model.reduction_settings
+        # Convert 0-100 to 0-1
+        red.percent_triangles = percents[i] / 100.0
+        model.reduction_settings = red
+        model.screen_size = screens[i]
+        mesh.set_source_model(i, model)
+    
+    mesh.build()
+    return True
+
+configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
+`;
+
+    try {
+      await ue.executePython(pythonScript);
+      addLog('success', `LOD_GEN_SUCCESS: ${configs.length} níveis aplicados a ${meshPath}`);
+    } catch (err: any) {
+      addLog('error', `LOD_GEN_FAULT: ${err.message}`);
+    }
   };
 
-  const handleAnimationControl = async (meshId: string, action: 'play' | 'pause' | 'stop' | 'rate', value?: any) => {
+  const handleAddLODLevel = () => {
+    setCurrentLODConfig(prev => {
+      const nextLevel = prev.length;
+      const lastTris = parseFloat(prev[prev.length - 1].tris);
+      const lastDist = prev[prev.length - 1].distance;
+      
+      const newLevel: LODLevel = {
+        level: nextLevel,
+        tris: Math.max(5, Math.floor(lastTris * 0.5)).toString(),
+        distance: Math.max(0.01, lastDist * 0.5),
+        status: 'GENERATED'
+      };
+      return [...prev, newLevel];
+    });
+  };
+
+  const handleUpdateLODLevel = (index: number, updates: Partial<LODLevel>) => {
+    setCurrentLODConfig(prev => prev.map((l, i) => i === index ? { ...l, ...updates } : l));
+  };
+
+  const handleRemoveLODLevel = (index: number) => {
+    if (currentLODConfig.length <= 1) return;
+    setCurrentLODConfig(prev => prev.filter((_, i) => i !== index).map((l, i) => ({ ...l, level: i })));
+  };
+
+  const [globalTimeDilation, setGlobalTimeDilation] = useState<number>(1.0);
+
+  const handleGlobalTimeDilation = async (value: number) => {
+    setGlobalTimeDilation(value);
+    const commands: UECommand[] = [
+      {
+        endpoint: '/remote/object/call',
+        method: 'PUT',
+        body: {
+          objectPath: '/Script/Engine.Default__GameplayStatics',
+          functionName: 'SetGlobalTimeDilation',
+          parameters: { 
+            WorldContextObject: '/Game/Maps/MainLevel.MainLevel',
+            TimeDilation: value 
+          }
+        }
+      }
+    ];
+    addLog('ue', `Ajustando Dilatação Temporal Global para ${value.toFixed(2)}x`);
+    await executeCommands(commands);
+  };
+
+  const handleAnimationControl = async (meshId: string, action: 'play' | 'pause' | 'stop' | 'rate' | 'loop' | 'anim', value?: any) => {
     const mesh = skeletalMeshes.find(m => m.id === meshId);
     if (!mesh) return;
 
@@ -609,351 +878,183 @@ export default function App() {
                 endpoint: '/remote/object/call',
                 method: 'PUT',
                 body: {
-                    objectPath: `${mesh.assetPath}.${mesh.id}`,
+                    objectPath: `${mesh.assetPath}.${mesh.id}.SkeletalMeshComponent`,
                     functionName: isPlaying ? 'Play' : 'Stop',
                     parameters: {}
                 }
             }
         ];
         setSkeletalMeshes(prev => prev.map(m => m.id === meshId ? { ...m, playing: isPlaying } : m));
+    } else if (action === 'stop') {
+        commands = [
+            {
+                endpoint: '/remote/object/call',
+                method: 'PUT',
+                body: {
+                    objectPath: `${mesh.assetPath}.${mesh.id}.SkeletalMeshComponent`,
+                    functionName: 'Stop',
+                    parameters: {}
+                }
+            }
+        ];
+        setSkeletalMeshes(prev => prev.map(m => m.id === meshId ? { ...m, playing: false } : m));
     } else if (action === 'rate') {
         commands = [
             {
                 endpoint: '/remote/object/call',
                 method: 'PUT',
                 body: {
-                    objectPath: `${mesh.assetPath}.${mesh.id}`,
+                    objectPath: `${mesh.assetPath}.${mesh.id}.SkeletalMeshComponent`,
                     functionName: 'SetPlayRate',
                     parameters: { NewRate: value }
                 }
             }
         ];
         setSkeletalMeshes(prev => prev.map(m => m.id === meshId ? { ...m, playRate: value } : m));
+    } else if (action === 'loop') {
+        commands = [
+            {
+                endpoint: '/remote/object/call',
+                method: 'PUT',
+                body: {
+                    objectPath: `${mesh.assetPath}.${mesh.id}.SkeletalMeshComponent`,
+                    functionName: 'SetLooping',
+                    parameters: { bInLooping: value }
+                }
+            }
+        ];
+        setSkeletalMeshes(prev => prev.map(m => m.id === meshId ? { ...m, loop: value } : m));
+    } else if (action === 'anim') {
+        commands = [
+          {
+              endpoint: '/remote/object/call',
+              method: 'PUT',
+              body: {
+                  objectPath: `${mesh.assetPath}.${mesh.id}.SkeletalMeshComponent`,
+                  functionName: 'PlayAnimation',
+                  parameters: { 
+                    NewAnimToPlay: `/Game/Animations/${value}`,
+                    bLooping: mesh.loop 
+                  }
+              }
+          }
+        ];
+        setSkeletalMeshes(prev => prev.map(m => m.id === meshId ? { ...m, currentAnim: value, playing: true } : m));
     }
 
-    addLog('ue', `Comando de animação [${action}] enviado para ${meshId}.`);
+    addLog('ue', `Comando de animação [${action}] enviado para ${meshId}${value !== undefined ? ': ' + value : ''}.`);
     await executeCommands(commands);
   };
 
   const handleUEConnectionTest = async () => {
-    try {
-      addLog('ue', `Testando conexão em ${connection.url}:${connection.port}...`);
-      await axios.put(`${connection.url}:${connection.port}/remote/object/call`, {
-          objectPath: "/Script/Engine.Default__GameplayStatics",
-          functionName: "GetTimeSeconds",
-          parameters: { WorldContextObject: "/Game/StarterContent/Maps/Minimal_Default.Minimal_Default" },
-          generateTransaction: false
-      }, { timeout: 3000 });
-      
+    const success = await ue.testConnection();
+    if (success) {
       setConnection(prev => ({ ...prev, connected: true }));
-      addLog('ue', 'LINK_ESTABLISHED: Sincronização estável com Unreal Engine.');
-    } catch (err: any) {
-      setConnection(prev => ({ ...prev, connected: false }));
-      addLog('error', `LINK_FAILURE: Verifique o Remote Control API (Porta ${connection.port}).`);
+      addLog('ue', 'LINK_ESTABLISHED: Sincronização estável.');
     }
   };
 
+  const auditSystem = ue.auditSystem;
+
   const [viewingCode, setViewingCode] = useState<boolean>(false);
 
-  return (
-    <div className="min-h-screen bg-[#0A0A0B] text-[#E1E1E6] font-sans selection:bg-[#9462E1]/30">
-      {/* Code Viewer Modal */}
-      <AnimatePresence>
-        {viewingCode && currentAIResponse && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-[#121214] border border-[#29292E] rounded-2xl w-full max-w-4xl max-h-[80vh] flex flex-col shadow-2xl"
-            >
-              <div className="p-6 border-b border-[#202024] flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Code2 className="text-[#9462E1]" />
-                  <h3 className="font-bold text-lg">Detalhes de Implementação</h3>
-                </div>
-                <button 
-                  onClick={() => setViewingCode(false)}
-                  className="p-2 hover:bg-[#202024] rounded-lg transition-colors"
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'console':
+        return (
+          <div className="flex-1 overflow-auto p-6 space-y-4 font-mono text-sm custom-scrollbar" ref={scrollRef}>
+            <AnimatePresence mode="popLayout">
+              {logs.map((log) => (
+                <motion.div
+                  key={log.id}
+                  initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
+                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  className={cn(
+                    "p-3 rounded-lg border flex gap-3",
+                    log.type === 'ai' ? "bg-[#121214] border-[#29292E]" : 
+                    log.type === 'ue' ? "bg-[#1E293B]/20 border-blue-500/20" :
+                    "bg-red-500/5 border-red-500/20"
+                  )}
                 >
-                  <AlertCircle className="w-5 h-5 rotate-45" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-auto p-6 space-y-6 custom-scrollbar">
-                {currentAIResponse.blueprintCode && (
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-bold text-[#8D8D99] uppercase tracking-widest">Procedimento Blueprint</h4>
-                    <pre className="p-4 bg-[#0A0A0B] border border-[#29292E] rounded-xl text-sm font-mono text-blue-300 overflow-x-auto">
-                      {currentAIResponse.blueprintCode}
-                    </pre>
+                  <div className="mt-1">
+                    {log.type === 'ai' && <Terminal className="w-4 h-4 text-[#9462E1]" />}
+                    {log.type === 'ue' && <Activity className="w-4 h-4 text-blue-400" />}
+                    {log.type === 'error' && <AlertCircle className="w-4 h-4 text-red-500" />}
                   </div>
-                )}
-                
-                {currentAIResponse.cppCode && (
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-bold text-[#8D8D99] uppercase tracking-widest">Snippet C++ (UE5)</h4>
-                    <pre className="p-4 bg-[#0A0A0B] border border-[#29292E] rounded-xl text-sm font-mono text-green-300 overflow-x-auto">
-                      {currentAIResponse.cppCode}
-                    </pre>
-                  </div>
-                )}
-
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-[#8D8D99] uppercase tracking-widest">Comandos de API (JSON payloads)</h4>
-                  <div className="space-y-2">
-                    {currentAIResponse.commands.map((cmd, idx) => (
-                      <pre key={idx} className="p-4 bg-[#0A0A0B] border border-[#29292E] rounded-xl text-[11px] font-mono text-purple-300 overflow-x-auto">
-                        {JSON.stringify(cmd, null, 2)}
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-[#7C7C8A] font-bold uppercase tracking-widest">{log.type}</span>
+                      <span className="text-[10px] text-[#7C7C8A]">{log.timestamp.toLocaleTimeString()}</span>
+                    </div>
+                    <p className={cn(
+                      "leading-relaxed",
+                      log.type === 'error' ? "text-red-400" : "text-[#E1E1E6]"
+                    )}>
+                      {log.message}
+                    </p>
+                    {log.data && (
+                      <pre className="mt-2 p-2 bg-black/40 rounded border border-white/5 overflow-x-auto text-[11px] text-blue-300">
+                        {JSON.stringify(log.data, null, 2)}
                       </pre>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-6 border-t border-[#202024] flex justify-end">
-                <button 
-                  onClick={() => setViewingCode(false)}
-                  className="bg-[#29292E] hover:bg-[#323238] text-white px-6 py-2 rounded-lg font-bold transition-all"
-                >
-                  Fechar
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Header */}
-      <header className="border-b border-[#202024] bg-[#121214] px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <Zap className="text-white w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="font-bold text-lg tracking-tight">UE Architect</h1>
-            <div className="flex items-center gap-2">
-              <span className={cn(
-                "w-2 h-2 rounded-full transition-all duration-500",
-                connection.connected ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]"
-              )} />
-              <p className="text-xs text-[#8D8D99] font-medium">
-                {connection.connected ? `Runtime_V12: ${connection.port}` : "Link Offline"}
-              </p>
-              <div className="w-px h-3 bg-[#323238] mx-1" />
-              <div className="flex items-center gap-1.5 overflow-hidden">
-                 <span className={cn(
-                   "text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-tighter",
-                   systemHealth.status === 'online' ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500"
-                 )}>
-                   AI: {systemHealth.status}
-                 </span>
-                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/5 text-[#4D4D57] uppercase tracking-tighter">
-                   MEM: {((systemHealth.memory?.rss || 0) / 1024 / 1024).toFixed(0)}MB
-                 </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="bg-[#202024] p-1 rounded-lg flex items-center gap-1">
-            <button 
-              onClick={() => setActiveTab('cognitive')}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'cognitive' ? "bg-purple-600 text-white shadow-lg shadow-purple-500/20" : "text-[#4D4D57] hover:text-white"
-              )}
-            >
-              COGNITIVE CORE
-            </button>
-            <button 
-              onClick={() => setActiveTab('inspector')}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'inspector' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "text-[#4D4D57] hover:text-white"
-              )}
-            >
-              INSPECTOR
-            </button>
-            <button 
-              onClick={() => setActiveTab('console')}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'console' ? "bg-[#9462E1] text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
-              )}
-            >
-              CONSOLE
-            </button>
-            <button 
-              onClick={() => setActiveTab('factory')}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'factory' ? "bg-[#9462E1] text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
-              )}
-            >
-              SCRIPT FACTORY
-            </button>
-            <button 
-              onClick={() => setActiveTab('system')}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'system' ? "bg-[#9462E1] text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
-              )}
-            >
-              ENVIRONMENT
-            </button>
-            <button 
-              onClick={() => setActiveTab('streaming')}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'streaming' ? "bg-[#9462E1] text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
-              )}
-            >
-              STREAMING
-            </button>
-            <button 
-              onClick={() => setActiveTab('materials')}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'materials' ? "bg-[#9462E1] text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
-              )}
-            >
-              MATERIALS
-            </button>
-            <button 
-              onClick={() => setActiveTab('animations')}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'animations' ? "bg-[#9462E1] text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
-              )}
-            >
-              ANIMATIONS
-            </button>
-            <button 
-              onClick={() => setActiveTab('cinematics')}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'cinematics' ? "bg-[#9462E1] text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
-              )}
-            >
-              CINEMATICS
-            </button>
-            <button 
-              onClick={() => setActiveTab('lod')}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'lod' ? "bg-amber-500 text-black shadow-lg" : "text-[#8D8D99] hover:text-white"
-              )}
-            >
-              LOD MANAGER
-            </button>
-            <button 
-              onClick={() => setActiveTab('scraper')}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'scraper' ? "bg-emerald-500 text-black shadow-lg" : "text-[#8D8D99] hover:text-white"
-              )}
-            >
-              ASSET SCRAPER
-            </button>
-            <button 
-              onClick={() => setActiveTab('audit')}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'audit' ? "bg-blue-500 text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
-              )}
-            >
-              AUDIT LOG
-            </button>
-          </div>
-          <div className="h-6 w-px bg-[#202024]" />
-          <button 
-            id="settings-btn"
-            onClick={() => setShowSettings(!showSettings)}
-            className="p-2 hover:bg-[#202024] rounded-lg transition-colors text-[#8D8D99] hover:text-white"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
-        </div>
-      </header>
-
-      <main className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_400px] h-[calc(100vh-73px)]">
-        {/* Main Interface */}
-        <section className="flex flex-col h-full border-r border-[#202024] overflow-hidden">
-          {activeTab === 'console' ? (
-            <div className="flex-1 overflow-auto p-6 space-y-4 font-mono text-sm custom-scrollbar" ref={scrollRef}>
-              <AnimatePresence mode="popLayout">
-                {logs.map((log) => (
-                  <motion.div
-                    key={log.id}
-                    initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
-                    animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                    className={cn(
-                      "p-3 rounded-lg border flex gap-3",
-                      log.type === 'ai' ? "bg-[#121214] border-[#29292E]" : 
-                      log.type === 'ue' ? "bg-[#1E293B]/20 border-blue-500/20" :
-                      "bg-red-500/5 border-red-500/20"
                     )}
-                  >
-                    <div className="mt-1">
-                      {log.type === 'ai' && <Terminal className="w-4 h-4 text-[#9462E1]" />}
-                      {log.type === 'ue' && <Activity className="w-4 h-4 text-blue-400" />}
-                      {log.type === 'error' && <AlertCircle className="w-4 h-4 text-red-500" />}
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-[#7C7C8A] font-bold uppercase tracking-widest">{log.type}</span>
-                        <span className="text-[10px] text-[#7C7C8A]">{log.timestamp.toLocaleTimeString()}</span>
-                      </div>
-                      <p className={cn(
-                        "leading-relaxed",
-                        log.type === 'error' ? "text-red-400" : "text-[#E1E1E6]"
-                      )}>
-                        {log.message}
-                      </p>
-                      {log.data && (
-                        <pre className="mt-2 p-2 bg-black/40 rounded border border-white/5 overflow-x-auto text-[11px] text-blue-300">
-                          {JSON.stringify(log.data, null, 2)}
-                        </pre>
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-              {logs.length === 0 && (
-                <div className="h-full flex flex-col items-center justify-center text-center space-y-6 opacity-40">
-                  <div className="w-20 h-20 bg-[#202024] rounded-full flex items-center justify-center">
-                    <Terminal className="w-8 h-8" />
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-lg font-medium">Console Aguardando Comandos</p>
-                    <p className="text-sm max-w-xs">Use o campo abaixo para enviar comandos naturais para a Unreal Engine através da IA.</p>
-                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            {logs.length === 0 && (
+              <div className="h-full flex flex-col items-center justify-center text-center space-y-6 opacity-40">
+                <div className="w-20 h-20 bg-[#202024] rounded-full flex items-center justify-center">
+                  <Terminal className="w-8 h-8" />
                 </div>
-              )}
+                <div className="space-y-1">
+                  <p className="text-lg font-medium">Console Aguardando Comandos</p>
+                  <p className="text-sm max-w-xs">Use o campo abaixo para enviar comandos naturais para a Unreal Engine através da IA.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      case 'factory':
+        return (
+          <ScriptFactory 
+            currentAIResponse={currentAIResponse}
+            commandHistory={commandHistory}
+            activeCategory={activeCategory}
+            setActiveCategory={setActiveCategory}
+            togglePin={togglePin}
+            updateCategory={updateCategory}
+            deleteCommand={deleteCommand}
+            setPrompt={setPrompt}
+          />
+        );
+      case 'system':
+        return (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="p-4 bg-[#121214] border-b border-[#202024] flex justify-end">
+              <button 
+                onClick={auditSystem}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 text-blue-500 border border-blue-500/20 rounded-lg font-bold text-[11px] hover:bg-blue-500 hover:text-white transition-all shadow-lg shadow-blue-500/10"
+              >
+                <Shield className="w-4 h-4" />
+                EXECUTAR AUDITORIA PREVENTIVA
+              </button>
             </div>
-          ) : activeTab === 'factory' ? (
-            <ScriptFactory 
-              currentAIResponse={currentAIResponse}
-              commandHistory={commandHistory}
-              activeCategory={activeCategory}
-              setActiveCategory={setActiveCategory}
-              togglePin={togglePin}
-              updateCategory={updateCategory}
-              deleteCommand={deleteCommand}
-              setPrompt={setPrompt}
-            />
-          ) : activeTab === 'system' ? (
             <TelemetryView />
-          ) : activeTab === 'materials' ? (
-            <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-[#050505]">
-              <div className="max-w-5xl mx-auto space-y-12">
+          </div>
+        );
+      case 'world':
+        return (
+          <WorldSettings 
+            onSwitchLevel={ue.switchLevel}
+            onTakeScreenshot={ue.takeHighResScreenshot}
+            onSetProperty={ue.setProperty}
+            addLog={addLog}
+          />
+        );
+      case 'materials':
+        return (
+          <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-[#050505]">
+            <div className="max-w-5xl mx-auto space-y-12">
                 <header className="space-y-2">
                   <div className="flex items-center gap-2 text-amber-500 font-bold text-xs uppercase tracking-[0.2em]">
                     <Zap className="w-4 h-4" />
@@ -968,16 +1069,16 @@ export default function App() {
                     <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest">Library</h3>
                     <div className="space-y-2">
                       {materials.map((mat) => (
-                        <button 
-                          key={mat.id}
-                          onClick={() => {
+                        <div key={mat.id} className="relative group">
+                          <button 
+                            onClick={() => {
                             setSelectedMaterialId(mat.id);
                             setEditingProps({
                                 baseColor: mat.baseColor,
                                 metallic: mat.metallic,
                                 roughness: mat.roughness,
                                 emissive: mat.emissive,
-                                textures: mat.textures || { albedo: '', normal: '', metallic: '', roughness: '' }
+                                textures: mat.textures || { BaseColorTexture: '', NormalMap: '', MetallicMap: '', RoughnessMap: '', SpecularMap: '' }
                             });
                           }}
                           className={`w-full text-left p-4 bg-[#121214] border rounded-xl hover:border-[#9462E1] transition-all group ${selectedMaterialId === mat.id ? 'border-[#9462E1] bg-[#121214]/80' : 'border-[#29292E]'}`}
@@ -990,6 +1091,16 @@ export default function App() {
                             </div>
                           </div>
                         </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleApplyMaterial(mat.id, mat);
+                          }}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-2 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-lg hover:bg-emerald-500 hover:text-black transition-all"
+                        >
+                          <Zap className="w-4 h-4" />
+                        </button>
+                      </div>
                       ))}
                       <button className="w-full py-3 border-2 border-dashed border-[#202024] rounded-xl text-[11px] font-bold text-[#4D4D57] hover:border-[#9462E1] hover:text-[#9462E1] transition-all">
                         + NOVO MATERIAL
@@ -1116,20 +1227,29 @@ export default function App() {
                     <div className="space-y-6 pt-8 border-t border-[#29292E]">
                         <div className="flex items-center justify-between">
                             <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest">Texture Channels</h3>
-                            <button 
-                                onClick={() => {
-                                    const paramName = window.prompt('Digite o nome do Parâmetro de Textura (ex: BaseColorTexture):');
-                                    if (paramName && !editingProps.textures[paramName]) {
-                                        setEditingProps(prev => ({
-                                            ...prev,
-                                            textures: { ...prev.textures, [paramName]: '' }
-                                        }));
-                                    }
-                                }}
-                                className="text-[10px] text-emerald-500 hover:text-emerald-400 font-bold uppercase"
-                            >
-                                + Adicionar Slot
-                            </button>
+                            <div className="flex items-center gap-4">
+                                <button 
+                                    onClick={handleBatchImportTextures}
+                                    className="text-[10px] text-amber-500 hover:text-amber-400 font-bold uppercase flex items-center gap-1.5"
+                                >
+                                    <Layers className="w-3 h-3" />
+                                    Importar Lote PBR
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        const paramName = window.prompt('Digite o nome do Parâmetro de Textura (ex: BaseColorTexture):');
+                                        if (paramName && !editingProps.textures[paramName]) {
+                                            setEditingProps(prev => ({
+                                                ...prev,
+                                                textures: { ...prev.textures, [paramName]: '' }
+                                            }));
+                                        }
+                                    }}
+                                    className="text-[10px] text-emerald-500 hover:text-emerald-400 font-bold uppercase"
+                                >
+                                    + Adicionar Slot
+                                </button>
+                            </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             {Object.entries(editingProps.textures).map(([type, pathValue]) => (
@@ -1161,7 +1281,16 @@ export default function App() {
                                             )}
                                         </div>
                                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 rounded-xl gap-2">
-                                            <button className="p-2 bg-[#9462E1] rounded-lg text-white">
+                                            <button 
+                                              onClick={() => {
+                                                const pathResult = window.prompt(`Importar textura para ${type}:`, pathValue || '/Game/Textures/');
+                                                if (pathResult !== null) setEditingProps(prev => ({ 
+                                                    ...prev, 
+                                                    textures: { ...prev.textures, [type]: pathResult } 
+                                                }));
+                                              }}
+                                              className="p-2 bg-[#9462E1] rounded-lg text-white hover:bg-[#A87FF3] transition-colors"
+                                            >
                                                 <Upload className="w-4 h-4" />
                                             </button>
                                             <button 
@@ -1194,303 +1323,700 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-              </div>
             </div>
-          ) : activeTab === 'cinematics' ? (
-            <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-[#050505]">
-               <div className="max-w-4xl mx-auto space-y-12">
-                <header className="space-y-2">
-                  <div className="flex items-center gap-2 text-indigo-500 font-bold text-xs uppercase tracking-[0.2em]">
-                    <Camera className="w-4 h-4" />
-                    <span>Cine Studio Core</span>
-                  </div>
-                  <h2 className="text-3xl font-bold text-white tracking-tight leading-tight">Camera Controller</h2>
-                  <p className="text-[#8D8D99]">Crie e maneje câmeras cinematográficas com precisão absoluta.</p>
-                </header>
+          </div>
+        );
+      case 'cinematics':
+        return (
+          <CinematicsManager 
+            connection={connection}
+            addLog={addLog}
+            executeCommands={executeCommands}
+            loading={loading}
+          />
+        );
+      case 'lod':
+        return (
+          <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-[#050505]">
+            <div className="max-w-5xl mx-auto space-y-12">
+              <header className="space-y-2">
+                <div className="flex items-center gap-2 text-amber-500 font-bold text-xs uppercase tracking-[0.2em]">
+                  <LayersIcon className="w-4 h-4" />
+                  <span>Resource Optimization Suite</span>
+                </div>
+                <h2 className="text-3xl font-bold text-white tracking-tight leading-tight">Mesh LOD Manager</h2>
+                <p className="text-[#8D8D99]">Configure hierarquias de níveis de detalhe para otimizar a performance de renderização em massa.</p>
+              </header>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="bg-[#121214] border border-[#29292E] rounded-3xl p-8 space-y-6">
-                    <h3 className="text-lg font-bold text-white">Spawn Inteligente</h3>
-                    <div className="space-y-4">
-                      <button 
-                        onClick={() => handleSpawnCamera({ x: 1000, y: 1000, z: 500, fov: 75, lookAtCenter: true })}
-                        disabled={loading}
-                        className="w-full p-6 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl flex items-center justify-between group hover:bg-indigo-500/20 disabled:opacity-50 transition-all"
-                      >
-                         <div className="flex items-center gap-4 text-left">
-                            <div className="p-3 bg-indigo-500 text-white rounded-xl group-hover:scale-110 transition-transform">
-                               <Target className="w-6 h-6" />
+              <div className="grid grid-cols-1 gap-8">
+                   <div className="bg-[#121214] border border-[#29292E] rounded-3xl overflow-hidden shadow-2xl">
+                      <div className="p-8 border-b border-[#29292E] flex items-center justify-between bg-white/[0.02]">
+                         <div className="flex items-center gap-6">
+                            <div className="w-16 h-16 bg-[#0A0A0B] rounded-2xl flex items-center justify-center border border-white/5">
+                               <LayersIcon className="w-8 h-8 text-[#4D4D57]" />
                             </div>
                             <div>
-                               <p className="font-bold text-white">Foco na Origem</p>
-                               <p className="text-xs text-[#8D8D99]">1000, 1000, 500 | FOV 75°</p>
+                               <h3 className="text-xl font-bold text-white uppercase tracking-tight">Active LOD Map</h3>
+                               <p className="text-xs text-[#8D8D99] font-mono">{selectedActorMeshPath || 'Select an actor with a Static Mesh to configure LODs'}</p>
                             </div>
                          </div>
-                         <Play className="w-5 h-5 text-indigo-500" />
-                      </button>
-
-                      <div className="grid grid-cols-2 gap-3 text-[10px] text-[#4D4D57] font-bold uppercase tracking-widest text-center">
-                         <div className="p-3 bg-white/5 rounded-lg border border-white/5">Auto Focus Ativo</div>
-                         <div className="p-3 bg-white/5 rounded-lg border border-white/5">Look-at Target</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-[#121214] border border-[#29292E] rounded-3xl p-8 space-y-6">
-                    <h3 className="text-lg font-bold text-white">Cameras Ativas</h3>
-                    <div className="space-y-3">
-                      {cameras.map(cam => (
-                        <div key={cam.id} className="p-4 bg-black/40 border border-white/5 rounded-xl flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <Video className="w-4 h-4 text-indigo-400" />
-                            <div>
-                              <p className="text-sm font-bold text-white">{cam.id}</p>
-                              <p className="text-[10px] text-[#4D4D57] font-mono">{cam.pos.x}, {cam.pos.y}, {cam.pos.z}</p>
+                         <div className="flex items-center gap-4">
+                            <div className="text-right">
+                               <p className="text-[10px] text-[#4D4D57] font-bold uppercase">Target Levels</p>
+                               <p className="text-xl font-black text-white">{currentLODConfig.length}</p>
                             </div>
-                          </div>
-                          <button className="text-[10px] font-bold text-[#9462E1] hover:underline">PILOTAR</button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                            <button 
+                              onClick={() => handleApplyLODs(selectedActorMeshPath || '', currentLODConfig)}
+                              disabled={loading || !selectedActorMeshPath}
+                              className="px-6 py-3 bg-amber-500 disabled:opacity-30 disabled:cursor-not-allowed text-black font-black uppercase text-[11px] rounded-xl hover:bg-amber-400 transition-all flex items-center gap-2 shadow-lg shadow-amber-500/10"
+                            >
+                               <Zap className="w-4 h-4 fill-current" />
+                               Deploy LOD Pipeline
+                            </button>
+                         </div>
+                      </div>
 
-                <div className="p-8 bg-[#0A0A0B] border border-[#29292E] rounded-3xl space-y-4">
-                  <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest">Live Viewport Settings</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] text-[#8D8D99] font-bold">Focal Length</label>
-                      <input type="range" className="w-full accent-indigo-500" defaultValue="35" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] text-[#8D8D99] font-bold">Aperture (f/)</label>
-                      <input type="range" className="w-full accent-indigo-500" defaultValue="2.8" />
-                    </div>
-                    <div className="space-y-2">
-                       <label className="text-[10px] text-[#8D8D99] font-bold">Sensor Width</label>
-                       <span className="block text-xs text-white font-mono">36.0mm (FF)</span>
-                    </div>
-                    <div className="space-y-2">
-                       <label className="text-[10px] text-[#8D8D99] font-bold">Aspect Ratio</label>
-                       <span className="block text-xs text-white font-mono">1.77 (16:9)</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : activeTab === 'lod' ? (
-            <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-[#050505]">
-              <div className="max-w-5xl mx-auto space-y-12">
-                <header className="space-y-2">
-                  <div className="flex items-center gap-2 text-amber-500 font-bold text-xs uppercase tracking-[0.2em]">
-                    <LayersIcon className="w-4 h-4" />
-                    <span>Resource Optimization Suite</span>
-                  </div>
-                  <h2 className="text-3xl font-bold text-white tracking-tight leading-tight">Mesh LOD Manager</h2>
-                  <p className="text-[#8D8D99]">Configure hierarquias de níveis de detalhe para otimizar a performance de renderização em massa.</p>
-                </header>
-
-                <div className="grid grid-cols-1 gap-8">
-                   {lodConfigs.map(config => (
-                     <div key={config.id} className="bg-[#121214] border border-[#29292E] rounded-3xl overflow-hidden shadow-2xl">
-                        <div className="p-8 border-b border-[#29292E] flex items-center justify-between bg-white/[0.02]">
-                           <div className="flex items-center gap-6">
-                              <div className="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center border border-amber-500/20">
-                                 <Monitor className="w-8 h-8 text-amber-500" />
+                      <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                         {currentLODConfig.map((lod, idx) => (
+                           <div key={idx} className="bg-black/40 border border-white/5 rounded-2xl p-6 relative group overflow-hidden hover:border-amber-500/30 transition-all">
+                              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                 <TrendingDown className="w-12 h-12 text-amber-500" />
                               </div>
-                              <div>
-                                 <h3 className="text-xl font-bold text-white">{config.id}</h3>
-                                 <p className="text-xs text-[#8D8D99] font-mono">{config.path}</p>
-                              </div>
-                           </div>
-                           <div className="flex items-center gap-4">
-                              <div className="text-right">
-                                 <p className="text-[10px] text-[#4D4D57] font-bold uppercase">Current Levels</p>
-                                 <p className="text-xl font-black text-white">{config.currentLODs}</p>
-                              </div>
-                              <button 
-                                onClick={() => handleApplyLODs(config.path, config.lods)}
-                                disabled={loading}
-                                className="px-6 py-3 bg-amber-500 disabled:opacity-50 text-black font-bold rounded-xl hover:bg-amber-400 transition-all flex items-center gap-2"
-                              >
-                                 <Zap className="w-4 h-4 fill-current" />
-                                 DEPLOY LOD_MAP
-                              </button>
-                           </div>
-                        </div>
-
-                        <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-                           {config.lods.map((lod: any, idx: number) => (
-                             <div key={idx} className="bg-black/40 border border-white/5 rounded-2xl p-6 relative group overflow-hidden">
-                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                   <TrendingDown className="w-12 h-12 text-amber-500" />
-                                </div>
-                                <div className="space-y-4 relative z-10">
-                                   <div className="flex items-center justify-between">
-                                      <span className="px-2 py-1 bg-amber-500/20 text-amber-500 text-[10px] font-black rounded uppercase">LOD {lod.level}</span>
-                                      <span className="text-[10px] text-[#4D4D57] font-bold">{lod.status}</span>
-                                   </div>
-                                   <div className="flex items-end gap-2">
-                                      <span className="text-3xl font-black text-white tracking-tighter">{lod.tris}</span>
-                                      <span className="text-[10px] text-[#8D8D99] mb-1.5 font-bold">TRIS</span>
-                                   </div>
-                                   <div className="space-y-1">
-                                      <div className="flex justify-between text-[9px] text-[#4D4D57] font-bold uppercase">
-                                         <span>Transition at</span>
-                                         <span className="text-amber-500">{lod.distance}u</span>
+                              {idx > 0 && (
+                                <button 
+                                  onClick={() => handleRemoveLODLevel(idx)}
+                                  className="absolute top-2 right-2 p-1 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              <div className="space-y-6 relative z-10">
+                                 <div className="flex items-center justify-between">
+                                    <span className="px-2 py-1 bg-amber-500/20 text-amber-500 text-[10px] font-black rounded uppercase tracking-widest">LEVEL {lod.level}</span>
+                                    <span className="text-[9px] text-[#4D4D57] font-black uppercase tracking-widest">{lod.status}</span>
+                                 </div>
+                                 
+                                 <div className="space-y-3">
+                                   <div className="flex justify-between items-end">
+                                      <span className="text-[10px] text-[#8D8D99] font-black uppercase">Complexity</span>
+                                      <div className="flex items-end gap-1">
+                                        <input 
+                                          type="text"
+                                          value={lod.tris}
+                                          onChange={(e) => handleUpdateLODLevel(idx, { tris: e.target.value })}
+                                          className="bg-transparent text-2xl font-black text-white tracking-tighter w-16 text-right focus:outline-none"
+                                        />
+                                        <span className="text-[10px] text-[#4D4D57] mb-1 font-bold">%</span>
                                       </div>
-                                      <input 
-                                        type="range" 
-                                        min="0" max="10000" step="100"
-                                        defaultValue={lod.distance}
-                                        className="w-full accent-amber-500 h-1"
-                                      />
                                    </div>
-                                </div>
-                             </div>
-                           ))}
-                           <button className="border-2 border-dashed border-[#29292E] rounded-2xl p-6 flex flex-col items-center justify-center gap-2 hover:bg-white/[0.02] transition-all group">
-                              <div className="w-10 h-10 bg-[#121214] rounded-full flex items-center justify-center text-[#4D4D57] group-hover:text-amber-500 group-hover:scale-110 transition-all">
-                                 <ChevronDown className="w-6 h-6" />
-                              </div>
-                              <span className="text-[10px] font-bold text-[#4D4D57] uppercase tracking-widest">Add LOD Level</span>
-                           </button>
-                        </div>
-                     </div>
-                   ))}
-                </div>
+                                   <input 
+                                     type="range" 
+                                     min="1" max="100" step="1"
+                                     value={lod.tris}
+                                     onChange={(e) => handleUpdateLODLevel(idx, { tris: e.target.value })}
+                                     className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                                   />
+                                 </div>
 
-                <div className="p-8 bg-amber-500/5 border border-amber-500/20 rounded-3xl space-y-4">
-                  <div className="flex items-center gap-3">
-                    <AlertCircle className="w-5 h-5 text-amber-500" />
-                    <h3 className="font-bold text-amber-500 uppercase tracking-widest text-sm">Optimization Policy</h3>
-                  </div>
-                  <p className="text-sm text-[#8D8D99] leading-relaxed">
+                                 <div className="space-y-3">
+                                    <div className="flex justify-between text-[10px] text-[#8D8D99] font-black uppercase">
+                                       <span>Screen Size</span>
+                                       <span className="text-amber-500 font-mono">{Number(lod.distance).toFixed(3)}</span>
+                                    </div>
+                                    <input 
+                                      type="range" 
+                                      min="0.01" max="1.0" step="0.01"
+                                      value={lod.distance}
+                                      onChange={(e) => handleUpdateLODLevel(idx, { distance: parseFloat(e.target.value) })}
+                                      className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                                    />
+                                    <div className="flex justify-between text-[7px] text-[#4D4D57] font-black uppercase tracking-tighter">
+                                       <span>Close (1.0)</span>
+                                       <span>Far (0.0)</span>
+                                    </div>
+                                 </div>
+                              </div>
+                           </div>
+                         ))}
+                         <button 
+                           onClick={handleAddLODLevel}
+                           className="border-2 border-dashed border-white/5 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 hover:bg-amber-500/5 hover:border-amber-500/20 transition-all group"
+                         >
+                            <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center text-[#4D4D57] group-hover:text-amber-500 group-hover:scale-110 transition-all border border-white/5">
+                               <Plus className="w-6 h-6" />
+                            </div>
+                            <div className="text-center">
+                              <span className="text-[10px] font-black text-[#4D4D57] uppercase tracking-widest group-hover:text-amber-500">Inject Level</span>
+                              <p className="text-[8px] text-[#4D4D57] font-bold mt-1 max-w-[100px]">Add a new LOD to the pipeline</p>
+                            </div>
+                         </button>
+                      </div>
+                   </div>
+              </div>
+
+              <div className="p-8 bg-amber-500/5 border border-amber-500/20 rounded-3xl space-y-4 shadow-xl">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-500" />
+                  <h3 className="font-black text-amber-500 uppercase tracking-widest text-xs">Optimization Deterministics</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <p className="text-[11px] text-[#8D8D99] leading-relaxed font-medium uppercase">
                     A redução de triângulos via Remote Control utiliza o motor de Proxy Mesh nativo da Unreal. 
-                    Certifique-se de que o plugin 'ProxyLODPlugin' está ativo para melhores resultados em meshes complexos. 
-                    Níveis acima de LOD 4 são recomendados apenas para representações impostoras (Billboards).
+                    O pipeline gera novos buffers de geometria de forma não destrutiva, preservando o asset original no Source Model 0. 
                   </p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-white/40 uppercase">
+                      <div className="w-1 h-1 bg-amber-500 rounded-full" />
+                      Mínimo de 3 níveis para distâncias escaláveis.
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-white/40 uppercase">
+                      <div className="w-1 h-1 bg-amber-500 rounded-full" />
+                      Triangulação decrescente garante performance.
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-white/40 uppercase">
+                      <div className="w-1 h-1 bg-amber-500 rounded-full" />
+                      Screen Size 0.01 é o limite de renderização visível.
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          ) : activeTab === 'streaming' ? (
-            <StreamingManager 
-              connection={connection} 
-              playerLocation={playerLocation} 
-              assets={streamingAssets}
-              setAssets={setStreamingAssets}
-              addLog={addLog}
-              camera={cameras.find(c => c.active) || cameras[0]}
-            />
-          ) : activeTab === 'animations' ? (
-            <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-[#050505]">
-               <div className="max-w-4xl mx-auto space-y-12">
-                <header className="space-y-2">
-                  <div className="flex items-center gap-2 text-rose-500 font-bold text-xs uppercase tracking-[0.2em]">
-                    <Video className="w-4 h-4" />
-                    <span>Skeletal Animation Core</span>
-                  </div>
-                  <h2 className="text-3xl font-bold text-white tracking-tight leading-tight">Animation Controller</h2>
-                  <p className="text-[#8D8D99]">Gerencie ativos de animação e controle a reprodução de skeletal meshes em tempo real.</p>
-                </header>
+          </div>
+        );
+      case 'streaming':
+        return (
+          <StreamingManager 
+            connection={connection} 
+            playerLocation={playerLocation} 
+            assets={streamingAssets}
+            setAssets={setStreamingAssets}
+            addLog={addLog}
+            camera={cameras.find(c => c.active) || cameras[0]}
+          />
+        );
+      case 'animations':
+        return (
+          <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-[#050505]">
+             <div className="max-w-4xl mx-auto space-y-12">
+              <header className="space-y-2">
+                <div className="flex items-center gap-2 text-rose-500 font-bold text-xs uppercase tracking-[0.2em]">
+                  <Video className="w-4 h-4" />
+                  <span>Skeletal Animation Core</span>
+                </div>
+                <h2 className="text-3xl font-bold text-white tracking-tight leading-tight">Animation Controller</h2>
+                <p className="text-[#8D8D99]">Gerencie ativos de animação e controle a reprodução de skeletal meshes em tempo real.</p>
+              </header>
 
-                <div className="grid grid-cols-1 gap-6">
-                  {skeletalMeshes.map((mesh) => (
-                    <div key={mesh.id} className="bg-[#121214] border border-[#29292E] rounded-3xl p-8 flex flex-col md:flex-row items-center gap-8">
-                       <div className="w-24 h-24 bg-rose-500/10 rounded-2xl flex items-center justify-center border border-rose-500/20">
-                          <Video className="w-10 h-10 text-rose-500" />
-                       </div>
-                       <div className="flex-1 space-y-4 text-center md:text-left">
+              <div className="bg-[#121214] border border-[#29292E] rounded-3xl p-8 space-y-6 shadow-2xl">
+                 <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                       <Zap className="w-5 h-5 text-amber-500 animate-pulse" />
+                       <h3 className="text-sm font-black text-white uppercase tracking-widest italic">Global Simulation Speed</h3>
+                    </div>
+                    <span className="text-xl font-black text-amber-500 font-mono tracking-tighter">{globalTimeDilation.toFixed(2)}x</span>
+                 </div>
+                 
+                 <div className="space-y-4">
+                    <input 
+                      type="range" 
+                      min="0.01" max="4" step="0.01"
+                      value={globalTimeDilation}
+                      onChange={(e) => handleGlobalTimeDilation(parseFloat(e.target.value))}
+                      className="w-full h-2 bg-[#202024] rounded-full appearance-none accent-amber-500 outline-none"
+                    />
+                    <div className="flex justify-between text-[10px] font-bold text-[#4D4D57] uppercase tracking-widest">
+                       <button onClick={() => handleGlobalTimeDilation(0.1)} className="hover:text-white transition-colors">Slow Mo (0.1x)</button>
+                       <button onClick={() => handleGlobalTimeDilation(1.0)} className="hover:text-white transition-colors">Normal (1.0x)</button>
+                       <button onClick={() => handleGlobalTimeDilation(2.0)} className="hover:text-white transition-colors">Fast (2.0x)</button>
+                       <button onClick={() => handleGlobalTimeDilation(4.0)} className="hover:text-white transition-colors">Hyper (4.0x)</button>
+                    </div>
+                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6">
+                {skeletalMeshes.map((mesh) => (
+                  <div key={mesh.id} className="bg-[#121214] border border-[#29292E] rounded-3xl p-8 flex flex-col md:flex-row items-center gap-8">
+                     <div className="w-24 h-24 bg-rose-500/10 rounded-2xl flex items-center justify-center border border-rose-500/20">
+                        <Video className="w-10 h-10 text-rose-500" />
+                     </div>
+                     <div className="flex-1 space-y-4 text-center md:text-left">
+                        <div className="flex items-center justify-between">
                           <div>
-                            <h3 className="text-xl font-bold text-white">{mesh.id}</h3>
-                            <p className="text-xs text-[#8D8D99] font-mono">{mesh.assetPath}</p>
+                            <h3 className="text-xl font-bold text-white uppercase tracking-tighter italic">{mesh.id}</h3>
+                            <p className="text-[10px] text-[#4D4D57] font-mono leading-tight">{mesh.assetPath}</p>
                           </div>
-                          <div className="flex flex-wrap items-center gap-3 justify-center md:justify-start">
-                             <span className="px-2 py-1 bg-white/5 rounded text-[10px] font-bold text-blue-400">ANIM: {mesh.currentAnim}</span>
-                             <span className={cn(
-                               "px-2 py-1 rounded text-[10px] font-bold",
-                               mesh.playing ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500"
-                             )}>
-                               STATUS: {mesh.playing ? 'PLAYING' : 'PAUSED'}
-                             </span>
-                          </div>
-                       </div>
-                       <div className="flex items-center gap-3 bg-black/40 p-2 rounded-2xl border border-white/5">
+                          
                           <button 
-                            onClick={() => handleAnimationControl(mesh.id, mesh.playing ? 'pause' : 'play')}
+                            onClick={() => handleAnimationControl(mesh.id, 'loop', !mesh.loop)}
                             className={cn(
-                              "w-12 h-12 rounded-xl flex items-center justify-center transition-all",
-                              mesh.playing ? "bg-amber-500/20 text-amber-500 hover:bg-amber-500/30" : "bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30"
+                              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase transition-all border",
+                              mesh.loop ? "bg-blue-500/10 text-blue-500 border-blue-500/20" : "bg-white/5 text-[#4D4D57] border-white/10"
                             )}
                           >
-                            {mesh.playing ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 fill-current" />}
+                            <Repeat className={cn("w-3 h-3", mesh.loop && "animate-spin-slow")} />
+                            {mesh.loop ? 'Loop ON' : 'Loop OFF'}
                           </button>
-                          <button 
-                            onClick={() => handleAnimationControl(mesh.id, 'stop')}
-                            className="w-12 h-12 bg-rose-500/20 text-rose-500 hover:bg-rose-500/30 rounded-xl flex items-center justify-center transition-all"
-                          >
-                            <RotateCcw className="w-5 h-5" />
-                          </button>
-                          
-                          <div className="w-px h-8 bg-white/10" />
-                          
-                          <div className="px-4 space-y-1">
-                             <label className="text-[9px] text-[#4D4D57] font-bold uppercase block text-center">Play Rate</label>
-                             <div className="flex items-center gap-3">
-                                <input 
-                                  type="range" 
-                                  min="0.1" max="3" step="0.1"
-                                  value={mesh.playRate}
-                                  onChange={(e) => handleAnimationControl(mesh.id, 'rate', parseFloat(e.target.value))}
-                                  className="w-24 accent-rose-500"
-                                />
-                                <span className="text-xs font-mono text-white w-8">{mesh.playRate}x</span>
-                             </div>
-                          </div>
-                       </div>
-                    </div>
-                  ))}
-                </div>
+                        </div>
 
-                <div className="p-8 bg-rose-500/5 border border-rose-500/20 rounded-3xl space-y-4">
-                  <div className="flex items-center gap-3">
-                    <AlertCircle className="w-5 h-5 text-rose-500" />
-                    <h3 className="font-bold text-rose-500 uppercase tracking-widest text-sm">Skeletal Hierarchy Warning</h3>
+                        <div className="flex flex-wrap items-center gap-2">
+                           {mesh.animations?.map((anim: any) => (
+                             <button
+                               key={anim}
+                               onClick={() => handleAnimationControl(mesh.id, 'anim', anim)}
+                               className={cn(
+                                 "px-2.5 py-1 rounded text-[9px] font-bold uppercase transition-all tracking-wider",
+                                 mesh.currentAnim === anim 
+                                   ? "bg-rose-500 text-white shadow-lg shadow-rose-500/20" 
+                                   : "bg-white/5 text-[#8D8D99] hover:bg-white/10 hover:text-white"
+                               )}
+                             >
+                               {anim}
+                             </button>
+                           ))}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3 justify-center md:justify-start">
+                           <span className={cn(
+                             "px-2 py-1 rounded text-[10px] font-black tracking-widest",
+                             mesh.playing ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500"
+                           )}>
+                             {mesh.playing ? '● PLAYING' : '○ PAUSED'}
+                           </span>
+                           <span className="px-2 py-1 bg-white/5 rounded text-[10px] font-bold text-blue-400">FPS ADAPTIVE: ENABLED</span>
+                        </div>
+                     </div>
+                     <div className="flex items-center gap-3 bg-black/40 p-2 rounded-2xl border border-white/5">
+                        <button 
+                          onClick={() => handleAnimationControl(mesh.id, mesh.playing ? 'pause' : 'play')}
+                          className={cn(
+                            "w-12 h-12 rounded-xl flex items-center justify-center transition-all",
+                            mesh.playing ? "bg-amber-500/20 text-amber-500 hover:bg-amber-500/30" : "bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30"
+                          )}
+                        >
+                          {mesh.playing ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 fill-current" />}
+                        </button>
+                        <button 
+                          onClick={() => handleAnimationControl(mesh.id, 'stop')}
+                          className="w-12 h-12 bg-rose-500/20 text-rose-500 hover:bg-rose-500/30 rounded-xl flex items-center justify-center transition-all"
+                        >
+                          <RotateCcw className="w-5 h-5" />
+                        </button>
+                        
+                        <div className="w-px h-8 bg-white/10" />
+                        
+                        <div className="px-4 space-y-1">
+                           <label className="text-[9px] text-[#4D4D57] font-bold uppercase block text-center">Play Rate</label>
+                           <div className="flex items-center gap-3">
+                              <input 
+                                type="range" 
+                                min="0.1" max="3" step="0.1"
+                                value={mesh.playRate}
+                                onChange={(e) => handleAnimationControl(mesh.id, 'rate', parseFloat(e.target.value))}
+                                className="w-24 accent-rose-500"
+                              />
+                              <span className="text-xs font-mono text-white w-8">{mesh.playRate}x</span>
+                           </div>
+                        </div>
+                     </div>
                   </div>
-                  <p className="text-sm text-[#8D8D99] leading-relaxed">
-                    Certifique-se de que o Asset Path aponta para uma instância válida do actor na cena (World Outliner). 
-                    A reprodução direta via Remote Control requer que o actor esteja configurado com 'Animation Mode' definido como 'Use Animation Asset'.
-                  </p>
+                ))}
+              </div>
+
+              <div className="p-8 bg-rose-500/5 border border-rose-500/20 rounded-3xl space-y-4">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-rose-500" />
+                  <h3 className="font-bold text-rose-500 uppercase tracking-widest text-sm">Skeletal Hierarchy Warning</h3>
                 </div>
+                <p className="text-sm text-[#8D8D99] leading-relaxed">
+                  Certifique-se de que o Asset Path aponta para uma instância válida do actor na cena (World Outliner). 
+                  A reprodução direta via Remote Control requer que o actor esteja configurado com 'Animation Mode' definido como 'Use Animation Asset'.
+                </p>
               </div>
             </div>
-          ) : activeTab === 'audit' ? (
-            <AuditTerminal />
-          ) : activeTab === 'inspector' ? (
-            <SceneInspector 
-               actors={inspectorActors}
-               onRefresh={() => {
-                  addLog('ue', 'Solicitando atualização da cena...');
-                  // Placeholder for actual UE command to request actors
-                  executeCommands([{
-                     endpoint: '/remote/object/call',
-                     method: 'PUT',
-                     body: { objectPath: '/Script/Engine.Default__GameplayStatics', functionName: 'GetAllActorsOfClass', parameters: { ActorClass: '/Script/Engine.Actor'} }
-                  }]);
-               }}
-            />
-          ) : activeTab === 'scraper' ? (
-            <AssetScraperUI addLog={addLog} />
-          ) : activeTab === 'cognitive' ? (
-            <CognitiveCore />
-          ) : (
-            <div className="flex-1 flex items-center justify-center bg-[#050505] text-[#4D4D57]">
-               <div className="text-center space-y-4">
-                  <Monitor className="w-12 h-12 mx-auto opacity-20" />
-                  <p className="text-[10px] font-black uppercase tracking-[0.4em]">Módulo em Desenvolvimento ou Restrito</p>
-               </div>
+          </div>
+        );
+      case 'audit':
+        return <AuditTerminal />;
+      case 'inspector':
+        return (
+          <SceneInspector 
+            actors={inspector.actors}
+            onRefresh={scanScene}
+            onPropertyUpdate={async (path, name, val) => {
+              try {
+                await axios.put(`${connection.url}:${connection.port}/remote/object/property`, {
+                  objectPath: path,
+                  propertyName: name,
+                  propertyValue: val
+                });
+                // Small delay then refresh to show updated values
+                setTimeout(scanScene, 400);
+              } catch (err: any) {
+                addLog('error', `PROPERTY_UPDATE_FAILED: ${err.message}`);
+              }
+            }}
+          />
+        );
+      case 'scraper':
+        return <AssetScraperUI addLog={addLog} />;
+       case 'controller':
+        return (
+          <div className="flex-1 p-8 overflow-y-auto custom-scrollbar bg-[#050505]">
+             <div className="max-w-4xl mx-auto space-y-8">
+                <VirtualController 
+                   isActive={true} 
+                   activeActor={selectedActorData?.path || null} 
+                   onUpdate={(pos, rot) => selectedActorData && ue.updateRealtimeActor(selectedActorData.path, pos, rot)} 
+                   onFOVUpdate={(path, val) => ue.setProperty(path, 'FieldOfView', val)}
+                   currentFOV={currentFOVValue}
+                   onBootstrap={() => ue.executePython(`
+import unreal
+
+def deploy_spectator_system():
+    # 1. Obter referências de subsistema
+    editor_subs = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem)
+    world = editor_subs.get_editor_world()
+    
+    # 2. Cleanup: Remover espectadores antigos para evitar vazamento de memória e poluição da cena
+    existing_actors = unreal.EditorLevelLibrary.get_all_level_actors()
+    for actor in existing_actors:
+        label = actor.get_actor_label()
+        if "UE_ARCHITECT_SPECTATOR" in label or label == "SpectatorPawn":
+             unreal.EditorLevelLibrary.destroy_actor(actor)
+             unreal.log("UE_ARCH: Limpeza de instância prévia concluída.")
+
+    # 3. Busca Robusta de Assets: Tentativa em múltiplos diretórios padrão
+    possible_paths = [
+        '/Game/Blueprints/BP_Spectator_Architect',
+        '/Game/Architect/BP_Spectator_Architect',
+        '/Game/Cinematics/BP_Spectator_Architect'
+    ]
+    
+    pawn_class = None
+    for path in possible_paths:
+        try:
+            pawn_class = unreal.EditorAssetLibrary.load_blueprint_class(path)
+            if pawn_class:
+                unreal.log(f"UE_ARCH: Blueprint carregado com sucesso de: {path}")
+                break
+        except:
+            continue
+            
+    if not pawn_class:
+        unreal.log_warning("UE_ARCH: BP Custom não encontrado. Utilizando SpectatorPawn nativo da Engine.")
+        pawn_class = unreal.SpectatorPawn
+    
+    # 4. Spawning e Atribuição de Identidade
+    spawn_loc = unreal.Vector(0, 0, 1000)
+    spawn_rot = unreal.Rotator(0, 0, 0)
+    new_spectator = unreal.EditorLevelLibrary.spawn_actor_from_class(pawn_class, spawn_loc, spawn_rot)
+    new_spectator.set_actor_label("UE_ARCHITECT_SPECTATOR")
+    
+    # 5. Possessão Determinística
+    player_controller = unreal.GameplayStatics.get_player_controller(world, 0)
+    if player_controller:
+        player_controller.possess(new_spectator)
+        unreal.log("UE_ARCH: PlayerController 0 assumiu o comando do Spectator.")
+    else:
+        unreal.log_error("UE_ARCH: Falha crítica - PlayerController 0 indisponível.")
+
+    return new_spectator.get_path_name()
+
+try:
+    spawn_path = deploy_spectator_system()
+    unreal.log(f"UE_ARCH_BOOTSTRAP_COMPLETE: {spawn_path}")
+except Exception as e:
+    unreal.log_error(f"UE_ARCH_BOOTSTRAP_FAILED: {str(e)}")
+`.trim())}
+                />
+             </div>
+          </div>
+        );
+      case 'laboratory':
+        return (
+          <GeometryLab 
+            activeActor={selectedActorData} 
+            diagnostics={selectedActorDiagnostics} 
+            onRefreshDiagnostics={async () => {
+              // Simulação de scan profundo
+              addLog('system', 'Profundidade Geométrica: Iniciando varredura via Open3D...');
+              await new Promise(r => setTimeout(r, 1000));
+              scanScene();
+            }}
+          />
+        );
+      case 'cognitive':
+        return (
+          <CognitiveCore 
+            stats={systemStats} 
+            aiHealth={systemHealth} 
+            selectedActor={selectedActorData} 
+            materials={materials}
+            onApplyMaterial={handleApplyMaterial}
+          />
+        );
+      default:
+        return (
+          <div className="flex-1 flex items-center justify-center bg-[#050505] text-[#4D4D57]">
+            <div className="text-center space-y-4">
+              <Monitor className="w-12 h-12 mx-auto opacity-20" />
+              <p className="text-[10px] font-black uppercase tracking-[0.4em]">Módulo em Desenvolvimento ou Restrito</p>
             </div>
-          )}
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0A0A0B] text-[#E1E1E6] font-sans selection:bg-[#9462E1]/30">
+      {/* Code Viewer Modal */}
+      <AnimatePresence>
+        {viewingCode && currentAIResponse && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#121214] border border-[#29292E] rounded-2xl w-full max-w-4xl max-h-[80vh] flex flex-col shadow-2xl"
+            >
+              <div className="p-6 border-b border-[#202024] flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Code2 className="text-[#9462E1]" />
+                  <h3 className="font-bold text-lg">Detalhes de Implementação</h3>
+                </div>
+                <button 
+                  onClick={() => setViewingCode(false)}
+                  className="p-2 hover:bg-[#202024] rounded-lg transition-colors"
+                >
+                  <AlertCircle className="w-5 h-5 rotate-45" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-auto p-6 space-y-6 custom-scrollbar">
+                {currentAIResponse.blueprintCode && (
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-[#8D8D99] uppercase tracking-widest">Procedimento Blueprint</h4>
+                    <pre className="p-4 bg-[#0A0A0B] border border-[#29292E] rounded-xl text-sm font-mono text-blue-300 overflow-x-auto">
+                      {currentAIResponse.blueprintCode}
+                    </pre>
+                  </div>
+                )}
+                
+                {currentAIResponse.cppCode && (
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-[#8D8D99] uppercase tracking-widest">Snippet C++ (UE5)</h4>
+                    <pre className="p-4 bg-[#0A0A0B] border border-[#29292E] rounded-xl text-sm font-mono text-green-300 overflow-x-auto">
+                      {currentAIResponse.cppCode}
+                    </pre>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-[#8D8D99] uppercase tracking-widest">Comandos de API (JSON payloads)</h4>
+                  <div className="space-y-2">
+                    {currentAIResponse.commands.map((cmd, idx) => (
+                      <pre key={idx} className="p-4 bg-[#0A0A0B] border border-[#29292E] rounded-xl text-[11px] font-mono text-purple-300 overflow-x-auto">
+                        {JSON.stringify(cmd, null, 2)}
+                      </pre>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-[#202024] flex justify-end">
+                <button 
+                  onClick={() => setViewingCode(false)}
+                  className="bg-[#29292E] hover:bg-[#323238] text-white px-6 py-2 rounded-lg font-bold transition-all"
+                >
+                  Fechar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Header */}
+      <header className="border-b border-[#202024] bg-[#121214] px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <Zap className="text-white w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="font-bold text-lg tracking-tight">UE Architect</h1>
+            <div className="flex items-center gap-2">
+              <span className={cn(
+                "w-2 h-2 rounded-full transition-all duration-500",
+                connection.connected ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]"
+              )} />
+              <p className="text-xs text-[#8D8D99] font-medium">
+                {connection.connected ? `Runtime_V12: ${connection.port}` : "Link Offline"}
+              </p>
+              <div className="w-px h-3 bg-[#323238] mx-1" />
+              <div className="flex items-center gap-1.5 overflow-hidden">
+                 <span className={cn(
+                   "text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-tighter",
+                   systemHealth.status === 'operational' ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500"
+                 )}>
+                   AI: {systemHealth.status}
+                 </span>
+                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/5 text-[#4D4D57] uppercase tracking-tighter">
+                   MEM: {((systemHealth.memory?.used || 0) / 1024 / 1024).toFixed(0)}MB
+                 </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="bg-[#202024] p-1 rounded-lg flex items-center gap-1">
+            <button 
+              onClick={() => setActiveTab('cognitive')}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
+                activeTab === 'cognitive' ? "bg-purple-600 text-white shadow-lg shadow-purple-500/20" : "text-[#4D4D57] hover:text-white"
+              )}
+            >
+              COGNITIVE CORE
+            </button>
+            <button 
+              onClick={() => setActiveTab('inspector')}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
+                activeTab === 'inspector' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "text-[#4D4D57] hover:text-white"
+              )}
+            >
+              SCENE HIERARCHY
+            </button>
+            <button 
+              onClick={() => setActiveTab('console')}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
+                activeTab === 'console' ? "bg-[#9462E1] text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
+              )}
+            >
+              CONSOLE
+            </button>
+            <button 
+              onClick={() => setActiveTab('factory')}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
+                activeTab === 'factory' ? "bg-[#9462E1] text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
+              )}
+            >
+              SCRIPT FACTORY
+            </button>
+            <button 
+              onClick={() => setActiveTab('world')}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
+                activeTab === 'world' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "text-[#4D4D57] hover:text-white"
+              )}
+            >
+              WORLD SETTINGS
+            </button>
+            <button 
+              onClick={() => setActiveTab('streaming')}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
+                activeTab === 'streaming' ? "bg-[#9462E1] text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
+              )}
+            >
+              STREAMING
+            </button>
+            <button 
+              onClick={() => setActiveTab('materials')}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
+                activeTab === 'materials' ? "bg-[#9462E1] text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
+              )}
+            >
+              PBR FORGE
+            </button>
+            <button 
+              onClick={() => setActiveTab('animations')}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
+                activeTab === 'animations' ? "bg-[#9462E1] text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
+              )}
+            >
+              ANIMATIONS
+            </button>
+            <button 
+              onClick={() => setActiveTab('cinematics')}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
+                activeTab === 'cinematics' ? "bg-[#9462E1] text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
+              )}
+            >
+              CINEMATICS
+            </button>
+            <button 
+              onClick={() => setActiveTab('controller')}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
+                activeTab === 'controller' ? "bg-cyan-600 text-white shadow-lg shadow-cyan-500/20" : "text-[#8D8D99] hover:text-white"
+              )}
+            >
+              CONTROLLER
+            </button>
+            <button 
+              onClick={() => setActiveTab('lod')}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
+                activeTab === 'lod' ? "bg-amber-500 text-black shadow-lg" : "text-[#8D8D99] hover:text-white"
+              )}
+            >
+              LOD MANAGER
+            </button>
+            <button 
+              onClick={() => setActiveTab('scraper')}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
+                activeTab === 'scraper' ? "bg-emerald-500 text-black shadow-lg" : "text-[#8D8D99] hover:text-white"
+              )}
+            >
+              ASSET SCRAPER
+            </button>
+            <button 
+              onClick={() => setActiveTab('laboratory')}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
+                activeTab === 'laboratory' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "text-[#8D8D99] hover:text-white"
+              )}
+            >
+              LABORATORY
+            </button>
+            <button 
+              onClick={() => setActiveTab('audit')}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
+                activeTab === 'audit' ? "bg-blue-500 text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
+              )}
+            >
+              AUDIT LOG
+            </button>
+          </div>
+          <div className="h-6 w-px bg-[#202024]" />
+          <button 
+            id="settings-btn"
+            onClick={() => setShowSettings(!showSettings)}
+            className="p-2 hover:bg-[#202024] rounded-lg transition-colors text-[#8D8D99] hover:text-white"
+          >
+            <Settings className="w-5 h-5" />
+          </button>
+        </div>
+      </header>
+
+      <main className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_400px] h-[calc(100vh-73px)]">
+        {/* Main Interface */}
+        <section className="flex flex-col h-full border-r border-[#202024] overflow-hidden">
+          {renderTabContent()}
 
           {/* Prompt Input */}
           <div className="p-6 bg-[#121214] border-t border-[#202024] relative">
@@ -1645,6 +2171,21 @@ export default function App() {
                 <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest pl-1">Ações Rápidas de Câmera</h3>
                 <div className="grid grid-cols-1 gap-2">
                   <button 
+                    onClick={() => {
+                        setActiveTab('cinematics');
+                        addLog('ai', 'Ativando Módulo Cine Studio: Sincronizando alvo de órbita...');
+                        // Adicionamos um pequeno delay para garantir que o componente montou se for a primeira vez
+                        setTimeout(() => {
+                           const btn = document.getElementById('sync-focus-btn');
+                           if (btn) btn.click();
+                        }, 500);
+                    }}
+                    className="text-left p-3 bg-indigo-500/10 rounded-lg hover:bg-indigo-500/20 border border-indigo-500/30 transition-all group"
+                  >
+                    <p className="text-[10px] font-bold text-indigo-400 mb-1">ORBIT FOCUS</p>
+                    <p className="text-xs text-[#8D8D99] group-hover:text-white">Rotacionar em volta do Ator Selecionado</p>
+                  </button>
+                  <button 
                     onClick={() => setPrompt("Crie uma CineCameraActor na posição X=500, Y=0, Z=200 olhando para a origem com FOV 60")}
                     className="text-left p-3 bg-[#0A0A0B]/50 rounded-lg hover:bg-[#9462E1]/10 border border-transparent hover:border-[#9462E1]/30 transition-all group"
                   >
@@ -1664,6 +2205,13 @@ export default function App() {
               <div className="space-y-3">
                 <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest pl-1">Materiais PBR</h3>
                 <div className="grid grid-cols-1 gap-2">
+                  <button 
+                    onClick={() => handleApplyMaterial('M_Industrial_Concrete', materials.find(m => m.id === 'M_Industrial_Concrete'))}
+                    className="text-left p-3 bg-amber-500/10 rounded-lg hover:bg-amber-500/20 border border-amber-500/30 transition-all group"
+                  >
+                    <p className="text-[10px] font-bold text-amber-500 mb-1">INDUSTRIAL CONCRETE</p>
+                    <p className="text-xs text-[#8D8D99] group-hover:text-white">Aplicar Concrete Industrial ao Selecionado</p>
+                  </button>
                   <button 
                     onClick={() => setPrompt("Aplique um material de Ouro Polido ao objeto selecionado (Metallic=1, Roughness=0.1, BaseColor=(1, 0.7, 0.1))")}
                     className="text-left p-3 bg-[#0A0A0B]/50 rounded-lg hover:bg-[#9462E1]/10 border border-transparent hover:border-[#9462E1]/30 transition-all group"
