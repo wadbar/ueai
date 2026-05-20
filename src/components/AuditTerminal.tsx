@@ -47,32 +47,32 @@ export const AuditTerminal: React.FC = () => {
   });
 
   return (
-    <div className="flex flex-col h-full bg-[#050505] font-mono">
-      <div className="p-4 border-b border-[#202024] bg-[#0A0A0B] flex items-center justify-between gap-4">
+    <div className="flex flex-col h-full bg-md-bg font-mono">
+      <div className="p-4 border-b border-md-border bg-md-surface1 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Shield className="w-5 h-5 text-blue-500" />
+          <Shield className="w-5 h-5 text-md-primary" />
           <div>
-            <h3 className="text-xs font-bold text-white uppercase tracking-[0.2em]">Live Audit System v12</h3>
-            <p className="text-[10px] text-[#4D4D57]">Monitoramento em tempo real de subprocessos e requisições.</p>
+            <h3 className="text-xs font-bold text-md-text-strong uppercase tracking-[0.2em]">Live Audit System v12</h3>
+            <p className="text-[10px] text-md-text-muted">Monitoramento em tempo real de subprocessos e requisições.</p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#4D4D57]" />
+            <Search className="absolute left-3 top-2/2 -translate-y-1/2 w-3.5 h-3.5 text-md-text-muted" />
             <input 
               type="text" 
               placeholder="FILTRAR_LOGS..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="bg-[#121214] border border-[#202024] rounded-lg px-9 py-1.5 text-[10px] text-white focus:outline-none focus:border-blue-500/50 w-64 transition-all"
+              className="bg-md-surface2 border border-md-border rounded-xl px-9 py-1.5 text-[10px] text-md-text-strong focus:outline-none focus:border-blue-500/50 w-64 transition-all"
             />
           </div>
           
           <select 
             value={levelFilter}
             onChange={(e) => setLevelFilter(e.target.value as any)}
-            className="bg-[#121214] border border-[#202024] rounded-lg px-3 py-1.5 text-[10px] text-white focus:outline-none"
+            className="bg-md-surface2 border border-md-border rounded-xl px-3 py-1.5 text-[10px] text-md-text-strong focus:outline-none"
           >
             <option value="all">ALL_LEVELS</option>
             <option value="info">INFO</option>
@@ -82,7 +82,7 @@ export const AuditTerminal: React.FC = () => {
 
           <button 
             onClick={() => setLogs([])}
-            className="p-2 hover:bg-red-500/10 text-[#4D4D57] hover:text-red-500 rounded-lg transition-all"
+            className="p-2 hover:bg-red-500/10 text-md-text-muted hover:text-red-500 rounded-xl transition-all"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -101,22 +101,22 @@ export const AuditTerminal: React.FC = () => {
               animate={{ opacity: 1, x: 0 }}
               className="flex items-start gap-3 py-1 group hover:bg-white/[0.02] transition-all rounded px-2"
             >
-              <span className="text-[10px] text-[#4D4D57] min-w-[80px] whitespace-nowrap">
+              <span className="text-[10px] text-md-text-muted min-w-[80px] whitespace-nowrap">
                 [{new Date(log.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}]
               </span>
               
               <span className={`text-[10px] font-bold uppercase min-w-[50px] ${
                 log.level === 'error' ? 'text-red-500' : 
                 log.level === 'warn' ? 'text-amber-500' : 
-                'text-blue-500'
+                'text-md-primary'
               }`}>
                 {log.level}
               </span>
 
-              <p className="text-[11px] text-[#E1E1E6] break-all">
+              <p className="text-[11px] text-md-text break-all">
                 {log.message}
                 {log.metadata && (
-                  <span className="ml-2 text-[#4D4D57] italic">
+                  <span className="ml-2 text-md-text-muted italic">
                     {typeof log.metadata === 'object' ? JSON.stringify(log.metadata) : log.metadata}
                   </span>
                 )}
@@ -133,15 +133,15 @@ export const AuditTerminal: React.FC = () => {
         )}
       </div>
 
-      <div className="p-2 border-t border-[#202024] bg-[#0A0A0B] flex items-center justify-between px-4">
+      <div className="p-2 border-t border-md-border bg-md-surface1 flex items-center justify-between px-4">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-            <span className="text-[9px] text-[#4D4D57] font-bold uppercase">Socket Link: Stable</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-md-primary text-md-on-primary" />
+            <span className="text-[9px] text-md-text-muted font-bold uppercase">Socket Link: Stable</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[9px] text-[#4D4D57] font-bold uppercase">Buffer: {logs.length}/100</span>
+            <span className="text-[9px] text-md-text-muted font-bold uppercase">Buffer: {logs.length}/100</span>
           </div>
         </div>
         <span className="text-[9px] text-[#29292E] font-bold italic uppercase">UE_Architect_Audit_Channel</span>

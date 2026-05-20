@@ -53,15 +53,15 @@ export const AssetScraperUI: React.FC<{ addLog: (t: any, m: string) => void }> =
   };
 
   return (
-    <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-[#050505]">
+    <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-md-bg">
       <div className="max-w-6xl mx-auto space-y-8">
         <header className="space-y-2">
           <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs uppercase tracking-[0.2em]">
             <Globe className="w-4 h-4" />
             <span>Industrial Web Miner</span>
           </div>
-          <h2 className="text-3xl font-black text-white uppercase tracking-tight">Asset Discovery System</h2>
-          <p className="text-[#8D8D99] font-mono text-sm max-w-2xl">
+          <h2 className="text-3xl font-black text-md-text-strong uppercase tracking-tight">Asset Discovery System</h2>
+          <p className="text-md-text-muted font-mono text-sm max-w-2xl">
             Mechanismo de orquestração hiper-concorrente para mineração de assets web e telemetria.
           </p>
         </header>
@@ -70,8 +70,8 @@ export const AssetScraperUI: React.FC<{ addLog: (t: any, m: string) => void }> =
           
           {/* Main Control Panel */}
           <div className="col-span-1 lg:col-span-3 space-y-6">
-            <div className="bg-[#0A0A0B] p-6 rounded-2xl border border-[#29292E] shadow-xl">
-              <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+            <div className="bg-md-surface1 p-6 rounded-2xl border border-md-border shadow-xl">
+              <h3 className="text-sm font-bold text-md-text-strong uppercase tracking-widest mb-4 flex items-center gap-2">
                 <Search className="w-4 h-4 text-emerald-500" />
                 Target Direct Input
               </h3>
@@ -79,7 +79,7 @@ export const AssetScraperUI: React.FC<{ addLog: (t: any, m: string) => void }> =
                 <input
                   type="text"
                   placeholder="https://raw.githubusercontent.com/... ou Endpoint JSON"
-                  className="flex-1 bg-[#121214] border border-[#29292E] p-4 rounded-xl text-white font-mono text-sm focus:border-emerald-500 transition-colors"
+                  className="flex-1 bg-md-surface2 border border-md-border p-4 rounded-2xl text-md-text-strong font-mono text-sm focus:border-emerald-500 transition-colors"
                   value={targetUrl}
                   onChange={(e) => setTargetUrl(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleScrape()}
@@ -87,7 +87,7 @@ export const AssetScraperUI: React.FC<{ addLog: (t: any, m: string) => void }> =
                 <button
                   onClick={handleScrape}
                   disabled={isScraping || !targetUrl}
-                  className="px-8 py-4 bg-emerald-500 hover:bg-emerald-400 disabled:bg-emerald-500/20 disabled:text-emerald-500/50 text-black font-black uppercase text-sm rounded-xl transition-all flex items-center gap-2"
+                  className="px-8 py-4 bg-emerald-500 hover:bg-emerald-400 disabled:bg-emerald-500/20 disabled:text-emerald-500/50 text-black font-black uppercase text-sm rounded-2xl transition-all flex items-center gap-2"
                 >
                   {isScraping ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <Terminal className="w-4 h-4" />}
                   {isScraping ? 'Mining...' : 'Execute'}
@@ -97,22 +97,22 @@ export const AssetScraperUI: React.FC<{ addLog: (t: any, m: string) => void }> =
 
             {/* Results Grid */}
             <div className="space-y-4">
-              <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest flex items-center gap-2">
+              <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest flex items-center gap-2">
                 <Database className="w-3 h-3" /> Data Payloads ({results.length})
               </h3>
               <div className="space-y-4">
                 {results.map((result, idx) => (
-                  <div key={idx} className="bg-[#121214] border border-[#202024] rounded-2xl overflow-hidden hover:border-[#29292E] transition-all">
-                    <div className="p-4 bg-[#1A1A1E] border-b border-[#202024] flex items-center justify-between">
+                  <div key={idx} className="bg-md-surface2 border border-md-border rounded-2xl overflow-hidden hover:border-md-border transition-all">
+                    <div className="p-4 bg-[#1A1A1E] border-b border-md-border flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         {result.status === 200 ? (
                           <CheckCircle className="w-4 h-4 text-emerald-500" />
                         ) : (
                           <AlertCircle className="w-4 h-4 text-red-500" />
                         )}
-                        <span className="text-xs font-mono text-white max-w-[200px] md:max-w-md truncate">{result.url}</span>
+                        <span className="text-xs font-mono text-md-text-strong max-w-[200px] md:max-w-md truncate">{result.url}</span>
                       </div>
-                      <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-[#8D8D99]">
+                      <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-md-text-muted">
                         <span>Latência: {result.latencyMs}ms</span>
                         <span>HTTP {result.status}</span>
                       </div>
@@ -123,7 +123,7 @@ export const AssetScraperUI: React.FC<{ addLog: (t: any, m: string) => void }> =
                   </div>
                 ))}
                 {results.length === 0 && (
-                  <div className="p-12 text-center border border-dashed border-[#202024] rounded-2xl flex flex-col items-center gap-4 text-[#4D4D57]">
+                  <div className="p-12 text-center border border-dashed border-md-border rounded-2xl flex flex-col items-center gap-4 text-md-text-muted">
                     <Box className="w-8 h-8 opacity-20" />
                     <p className="text-xs uppercase tracking-widest">Painel livre. Nenhuma operação de mineração em curso.</p>
                   </div>
@@ -134,28 +134,28 @@ export const AssetScraperUI: React.FC<{ addLog: (t: any, m: string) => void }> =
 
           {/* Sidebar Stats */}
           <div className="col-span-1 space-y-6">
-            <div className="bg-[#0A0A0B] p-6 rounded-2xl border border-[#29292E] space-y-6">
-              <h3 className="text-xs font-bold text-[#8D8D99] uppercase tracking-widest border-b border-[#202024] pb-4 flex items-center gap-2">
+            <div className="bg-md-surface1 p-6 rounded-2xl border border-md-border space-y-6">
+              <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest border-b border-md-border pb-4 flex items-center gap-2">
                 <Activity className="w-3 h-3 text-emerald-500" />
                 Telemetry Stats
               </h3>
               
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-[#4D4D57] uppercase">Processos Ativos</span>
+                  <span className="text-xs text-md-text-muted uppercase">Processos Ativos</span>
                   <span className="text-xs font-mono text-emerald-500 font-bold">{liveWorkers} / 10 Ocupadas</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-[#4D4D57] uppercase">Memory Limit</span>
-                  <span className="text-xs font-mono text-white">Isolation Safe</span>
+                  <span className="text-xs text-md-text-muted uppercase">Memory Limit</span>
+                  <span className="text-xs font-mono text-md-text-strong">Isolation Safe</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-[#4D4D57] uppercase">Circuit Breaker</span>
+                  <span className="text-xs text-md-text-muted uppercase">Circuit Breaker</span>
                   <span className="text-xs font-mono text-emerald-500">CLOSED</span>
                 </div>
               </div>
 
-              <div className="p-4 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
+              <div className="p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
                 <p className="text-[10px] text-emerald-500 leading-relaxed uppercase tracking-wide">
                   Módulo projetado para lidar com requisições assíncronas isoladas, bypassando as travas de navegador (CORS) e mantendo escalabilidade para milhares de links.
                 </p>

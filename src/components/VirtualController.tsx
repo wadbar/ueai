@@ -111,20 +111,20 @@ export const VirtualController: React.FC<VirtualControllerProps> = ({ onUpdate, 
   if (!isActive) return null;
 
   return (
-    <div className="p-6 bg-[#0A0A0B] border border-white/5 rounded-2xl space-y-6">
+    <div className="p-6 bg-md-surface1 border border-white/5 rounded-2xl space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-500/10 rounded-lg">
-            <Move className="w-5 h-5 text-blue-500" />
+          <div className="p-2 bg-md-primary text-md-on-primary/10 rounded-xl">
+            <Move className="w-5 h-5 text-md-primary" />
           </div>
           <div>
-            <h3 className="text-sm font-black text-white uppercase tracking-tighter">Virtual Player Controller</h3>
-            <p className="text-[10px] text-[#4D4D57] uppercase font-bold">Bridging Web & Unreal Engine</p>
+            <h3 className="text-sm font-black text-md-text-strong uppercase tracking-tighter">Virtual Player Controller</h3>
+            <p className="text-[10px] text-md-text-muted uppercase font-bold">Bridging Web & Unreal Engine</p>
           </div>
         </div>
         <div className={cn(
           "px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-2",
-          state.isControlling ? "bg-emerald-500/10 text-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)]" : "bg-white/5 text-[#4D4D57]"
+          state.isControlling ? "bg-emerald-500/10 text-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)]" : "bg-white/5 text-md-text-muted"
         )}>
           <div className={cn("w-1.5 h-1.5 rounded-full", state.isControlling ? "bg-emerald-500 animate-pulse" : "bg-[#4D4D57]")} />
           {state.isControlling ? 'Master Control Active' : 'Idle'}
@@ -132,19 +132,19 @@ export const VirtualController: React.FC<VirtualControllerProps> = ({ onUpdate, 
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <div className="bg-black/40 p-4 rounded-xl border border-white/5">
+        <div className="bg-black/40 p-4 rounded-2xl border border-white/5">
           <div className="flex items-center justify-between mb-4">
-               <span className="text-[9px] font-bold text-[#4D4D57] uppercase tracking-widest">Movement Stats</span>
+               <span className="text-[9px] font-bold text-md-text-muted uppercase tracking-widest">Movement Stats</span>
                <Zap className="w-3 h-3 text-amber-500" />
           </div>
           <div className="space-y-3">
              <div className="flex justify-between text-[10px]">
-                <span className="text-[#8D8D99]">Velocity</span>
-                <span className="text-white font-mono">{state.speed.toFixed(1)} uu/f</span>
+                <span className="text-md-text-muted">Velocity</span>
+                <span className="text-md-text-strong font-mono">{state.speed.toFixed(1)} uu/f</span>
              </div>
              <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
                 <motion.div 
-                  className="h-full bg-blue-500"
+                  className="h-full bg-md-primary text-md-on-primary"
                   initial={{ width: 0 }}
                   animate={{ width: `${(state.speed / 50) * 100}%` }}
                 />
@@ -155,27 +155,27 @@ export const VirtualController: React.FC<VirtualControllerProps> = ({ onUpdate, 
                 max="100" 
                 value={state.speed} 
                 onChange={(e) => setState(prev => ({ ...prev, speed: parseFloat(e.target.value) }))}
-                className="w-full h-1 bg-[#29292E] rounded-lg appearance-none cursor-pointer accent-blue-500"
+                className="w-full h-1 bg-[#29292E] rounded-xl appearance-none cursor-pointer accent-blue-500"
              />
           </div>
         </div>
 
-        <div className="bg-black/40 p-4 rounded-xl border border-white/5">
+        <div className="bg-black/40 p-4 rounded-2xl border border-white/5">
           <div className="flex items-center justify-between mb-4">
-               <span className="text-[9px] font-bold text-[#4D4D57] uppercase tracking-widest">Optics & Lens</span>
+               <span className="text-[9px] font-bold text-md-text-muted uppercase tracking-widest">Optics & Lens</span>
                <MousePointer2 className="w-3 h-3 text-cyan-500" />
           </div>
           <div className="space-y-3">
              <div className="flex justify-between text-[10px]">
-                <span className="text-[#8D8D99]">Field of View</span>
+                <span className="text-md-text-muted">Field of View</span>
                 <div className="flex items-center gap-2">
                    <input 
                       type="number"
                       value={fov.toFixed(1)}
                       onChange={(e) => handleFOVChange(parseFloat(e.target.value) || 0)}
-                      className="w-12 bg-transparent text-white font-mono text-right focus:outline-none"
+                      className="w-12 bg-transparent text-md-text-strong font-mono text-right focus:outline-none"
                    />
-                   <span className="text-[#4D4D57] font-mono">DEG</span>
+                   <span className="text-md-text-muted font-mono">DEG</span>
                 </div>
              </div>
              <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
@@ -192,17 +192,17 @@ export const VirtualController: React.FC<VirtualControllerProps> = ({ onUpdate, 
                 step="0.1"
                 value={fov} 
                 onChange={(e) => handleFOVChange(parseFloat(e.target.value))}
-                className="w-full h-1 bg-[#29292E] rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                className="w-full h-1 bg-[#29292E] rounded-xl appearance-none cursor-pointer accent-cyan-500"
              />
           </div>
         </div>
       </div>
 
-      <div className="bg-black/40 p-4 rounded-xl border border-white/5 flex flex-col justify-center gap-4">
+      <div className="bg-black/40 p-4 rounded-2xl border border-white/5 flex flex-col justify-center gap-4">
           {onBootstrap && (
             <button 
               onClick={onBootstrap}
-              className="w-full py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-500 rounded-lg text-[10px] font-black uppercase transition-all mb-1"
+              className="w-full py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-500 rounded-xl text-[10px] font-black uppercase transition-all mb-1"
             >
               Bootstrap UE Environment (Python)
             </button>
@@ -211,9 +211,9 @@ export const VirtualController: React.FC<VirtualControllerProps> = ({ onUpdate, 
             onClick={toggleControl}
             disabled={!activeActor}
             className={cn(
-              "w-full py-4 rounded-xl text-xs font-black uppercase transition-all flex items-center justify-center gap-3",
-              !activeActor ? "bg-white/5 text-[#4D4D57] cursor-not-allowed" :
-              state.isControlling ? "bg-rose-500 text-white shadow-lg shadow-rose-500/20" : "bg-blue-500 text-white hover:bg-blue-600"
+              "w-full py-4 rounded-2xl text-xs font-black uppercase transition-all flex items-center justify-center gap-3",
+              !activeActor ? "bg-white/5 text-md-text-muted cursor-not-allowed" :
+              state.isControlling ? "bg-rose-500 text-md-text-strong shadow-lg shadow-rose-500/20" : "bg-md-primary text-md-on-primary text-md-text-strong hover:opacity-90"
             )}
           >
             {state.isControlling ? (
@@ -232,21 +232,21 @@ export const VirtualController: React.FC<VirtualControllerProps> = ({ onUpdate, 
         </div>
 
       <div className="flex items-center gap-6 justify-center pt-2">
-         <div className="flex flex-col items-center gap-1 opacity-40">
-            <div className="flex gap-1">
+         <div className="flex flex-col items-center gap-2 opacity-40">
+            <div className="flex gap-2">
                <div className={cn("px-2 py-1 rounded border border-white/10 text-[9px]", state.keys.w && "bg-white/20")}>W</div>
             </div>
-            <div className="flex gap-1">
+            <div className="flex gap-2">
                <div className={cn("px-2 py-1 rounded border border-white/10 text-[9px]", state.keys.a && "bg-white/20")}>A</div>
                <div className={cn("px-2 py-1 rounded border border-white/10 text-[9px]", state.keys.s && "bg-white/20")}>S</div>
                <div className={cn("px-2 py-1 rounded border border-white/10 text-[9px]", state.keys.d && "bg-white/20")}>D</div>
             </div>
          </div>
          <div className="h-8 w-px bg-white/5" />
-         <div className="text-[9px] text-[#4D4D57] uppercase font-medium leading-relaxed">
-            <span className="text-white">Mouse</span>: Rotate Camera<br/>
-            <span className="text-white">W/A/S/D</span>: Local Movement<br/>
-            <span className="text-white">Q/E</span>: Elevation (Z-Axis)
+         <div className="text-[9px] text-md-text-muted uppercase font-medium leading-relaxed">
+            <span className="text-md-text-strong">Mouse</span>: Rotate Camera<br/>
+            <span className="text-md-text-strong">W/A/S/D</span>: Local Movement<br/>
+            <span className="text-md-text-strong">Q/E</span>: Elevation (Z-Axis)
          </div>
       </div>
     </div>

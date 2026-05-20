@@ -208,24 +208,24 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
   }, [orbitConfig.distance, orbitConfig.pitch, orbitConfig.yaw, orbitConfig.autoUpdate]);
 
   return (
-    <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-[#050505]">
+    <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-md-bg">
        <div className="max-w-4xl mx-auto space-y-12">
           <header className="space-y-2">
             <div className="flex items-center gap-2 text-indigo-500 font-bold text-xs uppercase tracking-[0.2em]">
               <Video className="w-4 h-4" />
               <span>Sistemas de Cinematografia Determinística</span>
             </div>
-            <h2 className="text-3xl font-bold text-white tracking-tight leading-tight uppercase italic">Controlador de Órbita</h2>
-            <p className="text-[#8D8D99]">Manipulação trigonométrica de CineCameraActors com trava de foco via EditorLevelLibrary.</p>
+            <h2 className="text-3xl font-bold text-md-text-strong tracking-tight leading-tight uppercase italic">Controlador de Órbita</h2>
+            <p className="text-md-text-muted">Manipulação trigonométrica de CineCameraActors com trava de foco via EditorLevelLibrary.</p>
           </header>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="space-y-6">
-              <div className="bg-[#121214] border border-[#29292E] rounded-3xl p-8 space-y-8">
+              <div className="bg-md-surface2 border border-md-border rounded-3xl p-8 space-y-8">
                  <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest">Parâmetros Geométricos</h3>
+                    <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest">Parâmetros Geométricos</h3>
                     <div className="flex items-center gap-3">
-                       <span className="text-[10px] text-[#4D4D57] font-bold">AUTO_SYNC</span>
+                       <span className="text-[10px] text-md-text-muted font-bold">AUTO_SYNC</span>
                        <button 
                          onClick={() => setOrbitConfig(prev => ({ ...prev, autoUpdate: !prev.autoUpdate }))}
                          className={cn(
@@ -234,7 +234,7 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
                          )}
                        >
                           <div className={cn(
-                            "absolute top-1 w-3 h-3 bg-white rounded-full transition-all",
+                            "absolute top-2 w-3 h-3 bg-white rounded-full transition-all",
                             orbitConfig.autoUpdate ? "right-1" : "left-1"
                           )} />
                        </button>
@@ -243,7 +243,7 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
 
                  <div className="space-y-6">
                     <div className="space-y-3">
-                       <div className="flex justify-between text-[11px] font-bold text-[#8D8D99] uppercase">
+                       <div className="flex justify-between text-[11px] font-bold text-md-text-muted uppercase">
                           <span>Raio de Órbita</span>
                           <span className="text-indigo-400 font-mono">{orbitConfig.distance}u</span>
                        </div>
@@ -256,7 +256,7 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
                     </div>
 
                     <div className="space-y-3">
-                       <div className="flex justify-between text-[11px] font-bold text-[#8D8D99] uppercase">
+                       <div className="flex justify-between text-[11px] font-bold text-md-text-muted uppercase">
                           <span>Inclinação (Pitch)</span>
                           <span className="text-indigo-400 font-mono">{orbitConfig.pitch}°</span>
                        </div>
@@ -269,7 +269,7 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
                     </div>
 
                     <div className="space-y-3">
-                       <div className="flex justify-between text-[11px] font-bold text-[#8D8D99] uppercase">
+                       <div className="flex justify-between text-[11px] font-bold text-md-text-muted uppercase">
                           <span>Rotação (Yaw)</span>
                           <span className="text-indigo-400 font-mono">{orbitConfig.yaw}°</span>
                        </div>
@@ -282,11 +282,11 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
                     </div>
                  </div>
 
-                 <div className="pt-8 border-t border-[#202024] grid grid-cols-2 gap-4">
+                 <div className="pt-8 border-t border-md-border grid grid-cols-2 gap-4">
                     <button 
                       onClick={applyOrbit}
                       disabled={loading || orbitConfig.autoUpdate}
-                      className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-indigo-600/20 uppercase text-[10px]"
+                      className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 text-md-text-strong font-bold py-4 rounded-2xl transition-all shadow-lg shadow-indigo-600/20 uppercase text-[10px]"
                     >
                       <Zap className="w-4 h-4 fill-current" />
                       Manual Sync
@@ -294,7 +294,7 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
                     <button 
                       id="sync-focus-btn"
                       onClick={syncSelectedAsTarget}
-                      className="flex items-center justify-center gap-2 bg-[#202024] hover:bg-[#29292E] text-white font-bold py-4 rounded-xl transition-all border border-white/5 uppercase text-[10px]"
+                      className="flex items-center justify-center gap-2 bg-[#202024] hover:bg-[#29292E] text-md-text-strong font-bold py-4 rounded-2xl transition-all border border-white/5 uppercase text-[10px]"
                     >
                       <Target className="w-4 h-4" />
                       Lock Focus
@@ -302,32 +302,32 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
                  </div>
               </div>
 
-              <div className="bg-[#121214] border border-[#29292E] rounded-3xl p-6 flex flex-col gap-4">
+              <div className="bg-md-surface2 border border-md-border rounded-3xl p-6 flex flex-col gap-4">
                  <div className="flex items-center justify-between">
-                    <h4 className="text-[10px] font-bold text-[#4D4D57] uppercase tracking-widest">Vetor do Alvo</h4>
+                    <h4 className="text-[10px] font-bold text-md-text-muted uppercase tracking-widest">Vetor do Alvo</h4>
                     <div className="px-2 py-1 bg-white/5 rounded text-[10px] text-indigo-400 font-mono">STATUS: LOCK</div>
                  </div>
-                 <div className="p-4 bg-black/40 rounded-xl border border-white/5 flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
+                 <div className="p-4 bg-black/40 rounded-2xl border border-white/5 flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
                        <Target className="w-5 h-5 text-indigo-500" />
                     </div>
                     <div className="flex-1 overflow-hidden">
-                       <p className="text-xs font-bold text-white truncate">{orbitConfig.targetActor ? orbitConfig.targetActor.split('.').pop() : 'Nenhum alvo selecionado'}</p>
-                       <p className="text-[10px] font-mono text-[#4D4D57] truncate">{orbitConfig.targetActor || 'Engine_Wait_Input'}</p>
+                       <p className="text-xs font-bold text-md-text-strong truncate">{orbitConfig.targetActor ? orbitConfig.targetActor.split('.').pop() : 'Nenhum alvo selecionado'}</p>
+                       <p className="text-[10px] font-mono text-md-text-muted truncate">{orbitConfig.targetActor || 'Engine_Wait_Input'}</p>
                     </div>
                  </div>
               </div>
             </div>
 
             <div className="space-y-6">
-               <div className="bg-[#121214] border border-[#29292E] rounded-3xl p-8 space-y-6">
+               <div className="bg-md-surface2 border border-md-border rounded-3xl p-8 space-y-6">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest">Matriz de Câmeras</h3>
+                    <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest">Matriz de Câmeras</h3>
                     <button 
                       onClick={scanCameras}
                       disabled={scanning}
                       className={cn(
-                        "p-2 hover:bg-[#202024] rounded-lg transition-colors text-[#4D4D57] hover:text-indigo-400",
+                        "p-2 hover:bg-[#202024] rounded-xl transition-colors text-md-text-muted hover:text-indigo-400",
                         scanning && "animate-spin"
                       )}
                     >
@@ -343,8 +343,8 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
                             key={camPath}
                             onClick={() => setOrbitConfig(prev => ({ ...prev, cameraActor: camPath }))}
                             className={cn(
-                              "w-full flex items-center justify-between p-4 rounded-xl border transition-all text-left",
-                              orbitConfig.cameraActor === camPath ? "bg-indigo-500/10 border-indigo-500 text-white" : "bg-[#0A0A0B] border-[#202024] text-[#8D8D99] hover:border-indigo-500/50"
+                              "w-full flex items-center justify-between p-4 rounded-2xl border transition-all text-left",
+                              orbitConfig.cameraActor === camPath ? "bg-indigo-500/10 border-indigo-500 text-md-text-strong" : "bg-md-surface1 border-md-border text-md-text-muted hover:border-indigo-500/50"
                             )}
                           >
                              <div className="flex items-center gap-3 overflow-hidden">
@@ -359,9 +359,9 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
                         );
                      })}
                      {discoveredCameras.length === 0 && !scanning && (
-                        <div className="py-8 text-center border-2 border-dashed border-[#202024] rounded-xl flex flex-col items-center gap-3">
+                        <div className="py-8 text-center border-2 border-dashed border-md-border rounded-2xl flex flex-col items-center gap-3">
                            <Camera className="w-8 h-8 text-[#202024]" />
-                           <p className="text-[10px] font-bold text-[#4D4D57] uppercase tracking-widest">Nenhuma Câmera Detectada</p>
+                           <p className="text-[10px] font-bold text-md-text-muted uppercase tracking-widest">Nenhuma Câmera Detectada</p>
                            <button onClick={scanCameras} className="text-[10px] text-indigo-500 hover:underline">Scan Scene</button>
                         </div>
                      )}
@@ -370,27 +370,27 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
                   <div className="p-6 bg-indigo-500/5 border border-indigo-500/20 rounded-2xl space-y-4">
                      <div className="flex items-center gap-2">
                         <Activity className="w-4 h-4 text-indigo-500" />
-                        <h4 className="text-[10px] font-black text-white uppercase">Pipeline Log</h4>
+                        <h4 className="text-[10px] font-black text-md-text-strong uppercase">Pipeline Log</h4>
                      </div>
                      <div className="space-y-2">
                         <div className="flex items-center justify-between text-[9px] font-bold">
-                           <span className="text-[#4D4D57]">TRIGONOMETRIA</span>
+                           <span className="text-md-text-muted">TRIGONOMETRIA</span>
                            <span className="text-emerald-500">OPTIMIZED</span>
                         </div>
                         <div className="flex items-center justify-between text-[9px] font-bold">
-                           <span className="text-[#4D4D57]">ESTADO_LATENCIA</span>
-                           <span className="text-blue-400">~15ms</span>
+                           <span className="text-md-text-muted">ESTADO_LATENCIA</span>
+                           <span className="text-md-primary">~15ms</span>
                         </div>
                      </div>
                   </div>
                </div>
 
-               <div className="p-8 bg-[#0A0A0B] border border-[#29292E] rounded-3xl space-y-4">
+               <div className="p-8 bg-md-surface1 border border-md-border rounded-3xl space-y-4">
                   <div className="flex items-center gap-3">
                     <Video className="w-5 h-5 text-indigo-500" />
-                    <h3 className="font-bold text-white uppercase tracking-widest text-xs italic">Cine Director V12</h3>
+                    <h3 className="font-bold text-md-text-strong uppercase tracking-widest text-xs italic">Cine Director V12</h3>
                   </div>
-                  <p className="text-[11px] text-[#8D8D99] leading-relaxed">
+                  <p className="text-[11px] text-md-text-muted leading-relaxed">
                     O controle de órbita via Remote Control recalcula as posições cartesianas baseadas em coordenadas esféricas 
                     a cada alteração de slider. Para órbita suave, ative o 'AUTO_SYNC'.
                   </p>

@@ -23,6 +23,8 @@ import {
   Video,
   Pause,
   RotateCcw,
+  Moon,
+  Sun,
   Bookmark,
   Trash2,
   Filter,
@@ -136,7 +138,16 @@ export default function App() {
   const [currentAIResponse, setCurrentAIResponse] = useState<AIResponse | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [activeTab, setActiveTab] = useState<'console' | 'factory' | 'system' | 'streaming' | 'materials' | 'animations' | 'cinematics' | 'lod' | 'audit' | 'cognitive' | 'inspector' | 'scraper' | 'controller' | 'laboratory' | 'world'>('cognitive');
-  
+  const [isDarkMode, setIsDarkMode] = useState(true);
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
   const addLog = useCallback((type: LogEntry['type'], message: string, data?: unknown) => {
     const sanitizedType = type === 'error' && message.includes('EXCEPTION') ? 'system' : type;
     const newLog: LogEntry = {
@@ -1127,25 +1138,25 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                   initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
                   animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                   className={cn(
-                    "p-3 rounded-lg border flex gap-3",
-                    log.type === 'ai' ? "bg-[#121214] border-[#29292E]" : 
+                    "p-3 rounded-xl border flex gap-3",
+                    log.type === 'ai' ? "bg-md-surface2 border-md-border" : 
                     log.type === 'ue' ? "bg-[#1E293B]/20 border-blue-500/20" :
                     "bg-red-500/5 border-red-500/20"
                   )}
                 >
                   <div className="mt-1">
-                    {log.type === 'ai' && <Terminal className="w-4 h-4 text-[#9462E1]" />}
-                    {log.type === 'ue' && <Activity className="w-4 h-4 text-blue-400" />}
+                    {log.type === 'ai' && <Terminal className="w-4 h-4 text-md-primary" />}
+                    {log.type === 'ue' && <Activity className="w-4 h-4 text-md-primary" />}
                     {log.type === 'error' && <AlertCircle className="w-4 h-4 text-red-500" />}
                   </div>
                   <div className="flex-1 space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-[#7C7C8A] font-bold uppercase tracking-widest">{log.type}</span>
-                      <span className="text-[10px] text-[#7C7C8A]">{log.timestamp.toLocaleTimeString()}</span>
+                      <span className="text-[10px] text-md-text-muted font-bold uppercase tracking-widest">{log.type}</span>
+                      <span className="text-[10px] text-md-text-muted">{log.timestamp.toLocaleTimeString()}</span>
                     </div>
                     <p className={cn(
                       "leading-relaxed",
-                      log.type === 'error' ? "text-red-400" : "text-[#E1E1E6]"
+                      log.type === 'error' ? "text-red-400" : "text-md-text"
                     )}>
                       {log.message}
                     </p>
@@ -1187,10 +1198,10 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
       case 'system':
         return (
           <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="p-4 bg-[#121214] border-b border-[#202024] flex justify-end">
+            <div className="p-4 bg-md-surface2 border-b border-md-border flex justify-end">
               <button 
                 onClick={auditSystem}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 text-blue-500 border border-blue-500/20 rounded-lg font-bold text-[11px] hover:bg-blue-500 hover:text-white transition-all shadow-lg shadow-blue-500/10"
+                className="flex items-center gap-2 px-4 py-2 bg-md-primary text-md-on-primary/10 text-md-primary border border-blue-500/20 rounded-xl font-bold text-[11px] hover:bg-md-primary text-md-on-primary hover:text-md-text-strong transition-all shadow-lg shadow-blue-500/10"
               >
                 <Shield className="w-4 h-4" />
                 EXECUTAR AUDITORIA PREVENTIVA
@@ -1210,20 +1221,20 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
         );
       case 'materials':
         return (
-          <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-[#050505]">
+          <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-md-bg">
             <div className="max-w-5xl mx-auto space-y-12">
                 <header className="space-y-2">
                   <div className="flex items-center gap-2 text-amber-500 font-bold text-xs uppercase tracking-[0.2em]">
                     <Zap className="w-4 h-4" />
                     <span>PBR Forge</span>
                   </div>
-                  <h2 className="text-3xl font-bold text-white tracking-tight leading-tight">Material Designer</h2>
-                  <p className="text-[#8D8D99]">Crie e aplique instâncias de materiais fisicamente corretas diretamente no motor.</p>
+                  <h2 className="text-3xl font-bold text-md-text-strong tracking-tight leading-tight">Material Designer</h2>
+                  <p className="text-md-text-muted">Crie e aplique instâncias de materiais fisicamente corretas diretamente no motor.</p>
                 </header>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   <div className="lg:col-span-1 space-y-4">
-                    <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest">Library</h3>
+                    <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest">Library</h3>
                     <div className="space-y-2">
                       {materials.map((mat) => (
                         <div key={mat.id} className="relative group">
@@ -1238,13 +1249,13 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                                 textures: mat.textures || { BaseColorTexture: '', NormalMap: '', MetallicMap: '', RoughnessMap: '', SpecularMap: '' }
                             });
                           }}
-                          className={`w-full text-left p-4 bg-[#121214] border rounded-xl hover:border-[#9462E1] transition-all group ${selectedMaterialId === mat.id ? 'border-[#9462E1] bg-[#121214]/80' : 'border-[#29292E]'}`}
+                          className={`w-full text-left p-4 bg-md-surface2 border rounded-2xl hover:border-[#9462E1] transition-all group ${selectedMaterialId === mat.id ? 'border-[#9462E1] bg-md-surface2/80' : 'border-md-border'}`}
                         >
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded shadow-inner" style={{ backgroundColor: mat.baseColor }} />
                             <div>
-                               <p className={`text-sm font-bold transition-colors ${selectedMaterialId === mat.id ? 'text-[#9462E1]' : 'text-white group-hover:text-[#9462E1]'}`}>{mat.id}</p>
-                               <span className="text-[10px] text-[#4D4D57] font-mono">{mat.status}</span>
+                               <p className={`text-sm font-bold transition-colors ${selectedMaterialId === mat.id ? 'text-md-primary' : 'text-md-text-strong group-hover:text-md-primary'}`}>{mat.id}</p>
+                               <span className="text-[10px] text-md-text-muted font-mono">{mat.status}</span>
                             </div>
                           </div>
                         </button>
@@ -1253,25 +1264,25 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                             e.stopPropagation();
                             handleApplyMaterial(mat.id, mat);
                           }}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-2 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-lg hover:bg-emerald-500 hover:text-black transition-all"
+                          className="absolute right-4 top-2/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-2 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-xl hover:bg-emerald-500 hover:text-black transition-all"
                         >
                           <Zap className="w-4 h-4" />
                         </button>
                       </div>
                       ))}
-                      <button className="w-full py-3 border-2 border-dashed border-[#202024] rounded-xl text-[11px] font-bold text-[#4D4D57] hover:border-[#9462E1] hover:text-[#9462E1] transition-all">
+                      <button className="w-full py-3 border-2 border-dashed border-md-border rounded-2xl text-[11px] font-bold text-md-text-muted hover:border-[#9462E1] hover:text-md-primary transition-all">
                         + NOVO MATERIAL
                       </button>
                     </div>
                   </div>
 
-                  <div className="lg:col-span-2 bg-[#0A0A0B] border border-[#29292E] rounded-3xl p-8 space-y-8">
+                  <div className="lg:col-span-2 bg-md-surface1 border border-md-border rounded-3xl p-8 space-y-8">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-bold text-white">Editor de Propriedades</h3>
+                      <h3 className="text-lg font-bold text-md-text-strong">Editor de Propriedades</h3>
                       <button 
                         onClick={() => handleApplyMaterial(selectedMaterialId, editingProps)}
                         disabled={loading}
-                        className="px-4 py-2 bg-emerald-500 disabled:opacity-50 text-black text-[11px] font-bold rounded-lg hover:bg-emerald-400 transition-colors"
+                        className="px-4 py-2 bg-emerald-500 disabled:opacity-50 text-black text-[11px] font-bold rounded-xl hover:bg-emerald-400 transition-colors"
                       >
                         APLICAR AO SELECIONADO
                       </button>
@@ -1281,7 +1292,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                       <div className="space-y-6">
                         <div className="space-y-4">
                             <div className="space-y-2">
-                              <label className="text-[10px] text-[#8D8D99] font-bold uppercase tracking-widest">Albedo (Base Color)</label>
+                              <label className="text-[10px] text-md-text-muted font-bold uppercase tracking-widest">Albedo (Base Color)</label>
                               <div className="flex items-center gap-3">
                                 <input 
                                   type="color" 
@@ -1291,7 +1302,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                                 />
                                 <input 
                                   type="text" 
-                                  className="flex-1 bg-[#121214] border border-[#29292E] p-3 rounded-lg text-white font-mono text-sm" 
+                                  className="flex-1 bg-md-surface2 border border-md-border p-3 rounded-xl text-md-text-strong font-mono text-sm" 
                                   value={typeof editingProps.baseColor === 'object' ? JSON.stringify(editingProps.baseColor) : editingProps.baseColor}
                                   onChange={(e) => {
                                       let val: any = e.target.value;
@@ -1313,7 +1324,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                                 />
                                 <input 
                                   type="text" 
-                                  className="flex-1 bg-[#121214] border border-[#29292E] p-3 rounded-lg text-white font-mono text-sm focus:border-red-500" 
+                                  className="flex-1 bg-md-surface2 border border-md-border p-3 rounded-xl text-md-text-strong font-mono text-sm focus:border-red-500" 
                                   value={typeof editingProps.emissive === 'object' ? JSON.stringify(editingProps.emissive) : editingProps.emissive}
                                   onChange={(e) => {
                                       let val: any = e.target.value;
@@ -1328,8 +1339,8 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                         <div className="space-y-4">
                            <div className="space-y-2">
                              <div className="flex justify-between">
-                               <label className="text-[10px] text-[#8D8D99] font-bold uppercase tracking-widest">Metallic</label>
-                               <span className="text-[10px] text-white font-mono">{editingProps.metallic.toFixed(2)}</span>
+                               <label className="text-[10px] text-md-text-muted font-bold uppercase tracking-widest">Metallic</label>
+                               <span className="text-[10px] text-md-text-strong font-mono">{editingProps.metallic.toFixed(2)}</span>
                              </div>
                              <input 
                                type="range" 
@@ -1342,8 +1353,8 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
 
                            <div className="space-y-2">
                              <div className="flex justify-between">
-                               <label className="text-[10px] text-[#8D8D99] font-bold uppercase tracking-widest">Roughness</label>
-                               <span className="text-[10px] text-white font-mono">{editingProps.roughness.toFixed(2)}</span>
+                               <label className="text-[10px] text-md-text-muted font-bold uppercase tracking-widest">Roughness</label>
+                               <span className="text-[10px] text-md-text-strong font-mono">{editingProps.roughness.toFixed(2)}</span>
                              </div>
                              <input 
                                type="range" 
@@ -1358,36 +1369,36 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
 
                       <div className="space-y-6">
                         <div className="space-y-2">
-                           <label className="text-[10px] text-[#8D8D99] font-bold uppercase tracking-widest">Emissive Intensity</label>
+                           <label className="text-[10px] text-md-text-muted font-bold uppercase tracking-widest">Emissive Intensity</label>
                            <div className="flex items-center gap-3">
-                            <div className="p-3 bg-[#121214] border border-[#29292E] rounded-lg flex-1">
+                            <div className="p-3 bg-md-surface2 border border-md-border rounded-xl flex-1">
                                <div className="h-1 bg-gradient-to-r from-black to-blue-500 rounded-full" />
                             </div>
                            </div>
                         </div>
 
                         <div className="space-y-2">
-                           <label className="text-[10px] text-[#8D8D99] font-bold uppercase tracking-widest">Normal Map Strength</label>
+                           <label className="text-[10px] text-md-text-muted font-bold uppercase tracking-widest">Normal Map Strength</label>
                            <input type="range" className="w-full accent-blue-500" />
                         </div>
 
-                        <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl space-y-2">
+                        <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl space-y-2">
                            <div className="flex items-center gap-2">
                              <Activity className="w-3.5 h-3.5 text-emerald-500" />
                              <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest">PBR Validation</span>
                            </div>
-                           <p className="text-[11px] text-[#8D8D99]">Valores dentro do intervalo físico otimizado para o Lumen.</p>
+                           <p className="text-[11px] text-md-text-muted">Valores dentro do intervalo físico otimizado para o Lumen.</p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="space-y-6 pt-8 border-t border-[#29292E]">
+                    <div className="space-y-6 pt-8 border-t border-md-border">
                         <div className="flex items-center justify-between">
-                            <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest">Texture Channels</h3>
+                            <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest">Texture Channels</h3>
                             <div className="flex items-center gap-4">
                                 <button 
                                     onClick={handleBatchImportTextures}
-                                    className="text-[10px] text-amber-500 hover:text-amber-400 font-bold uppercase flex items-center gap-1.5"
+                                    className="text-[10px] text-amber-500 hover:text-amber-400 font-bold uppercase flex items-center gap-2.5"
                                 >
                                     <Layers className="w-3 h-3" />
                                     Importar Lote PBR
@@ -1412,7 +1423,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                             {Object.entries(editingProps.textures).map(([type, pathValue]) => (
                                 <div key={type} className="space-y-4">
                                     <div className="flex items-center justify-between">
-                                        <label className="text-[10px] text-[#8D8D99] font-bold uppercase tracking-widest">{type}</label>
+                                        <label className="text-[10px] text-md-text-muted font-bold uppercase tracking-widest">{type}</label>
                                         <button 
                                             onClick={() => {
                                                 const newTextures = { ...editingProps.textures };
@@ -1425,19 +1436,19 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                                         </button>
                                     </div>
                                     <div className="relative group">
-                                        <div className="h-40 bg-[#121214] border border-[#29292E] rounded-xl flex flex-col items-center justify-center gap-2 group-hover:border-[#9462E1] transition-all overflow-hidden">
+                                        <div className="h-40 bg-md-surface2 border border-md-border rounded-2xl flex flex-col items-center justify-center gap-2 group-hover:border-[#9462E1] transition-all overflow-hidden">
                                             {pathValue ? (
                                                 <div className="w-full h-full bg-[#1e1e21] flex items-center justify-center italic text-[10px] text-[#4d4d57]">
                                                     {pathValue}
                                                 </div>
                                             ) : (
                                                 <>
-                                                    <ImageIcon className="w-6 h-6 text-[#4D4D57]" />
-                                                    <span className="text-[9px] text-[#4D4D57] font-bold">MISSING_MAP</span>
+                                                    <ImageIcon className="w-6 h-6 text-md-text-muted" />
+                                                    <span className="text-[9px] text-md-text-muted font-bold">MISSING_MAP</span>
                                                 </>
                                             )}
                                         </div>
-                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 rounded-xl gap-2">
+                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 rounded-2xl gap-2">
                                             <button 
                                               onClick={() => {
                                                 const pathResult = window.prompt(`Importar textura para ${type}:`, pathValue || '/Game/Textures/');
@@ -1446,7 +1457,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                                                     textures: { ...prev.textures, [type]: pathResult } 
                                                 }));
                                               }}
-                                              className="p-2 bg-[#9462E1] rounded-lg text-white hover:bg-[#A87FF3] transition-colors"
+                                              className="p-2 bg-md-primary text-md-on-primary rounded-xl text-md-text-strong hover:bg-[#A87FF3] transition-colors"
                                             >
                                                 <Upload className="w-4 h-4" />
                                             </button>
@@ -1458,7 +1469,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                                                         textures: { ...prev.textures, [type]: pathResult } 
                                                     }));
                                                 }}
-                                                className="p-2 bg-white/10 rounded-lg text-white hover:bg-white/20"
+                                                className="p-2 bg-white/10 rounded-xl text-md-text-strong hover:bg-white/20"
                                             >
                                                 <Filter className="w-4 h-4" />
                                             </button>
@@ -1467,7 +1478,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                                     <input 
                                         type="text" 
                                         placeholder="/Game/Textures/..."
-                                        className="w-full bg-[#121214] border border-[#29292E] p-2 rounded text-[10px] text-[#8D8D99] font-mono focus:border-[#9462E1] outline-none"
+                                        className="w-full bg-md-surface2 border border-md-border p-2 rounded text-[10px] text-md-text-muted font-mono focus:border-[#9462E1] outline-none"
                                         value={pathValue}
                                         onChange={(e) => setEditingProps(prev => ({ 
                                             ...prev, 
@@ -1494,38 +1505,38 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
         );
       case 'lod':
         return (
-          <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-[#050505]">
+          <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-md-bg">
             <div className="max-w-5xl mx-auto space-y-12">
               <header className="space-y-2">
                 <div className="flex items-center gap-2 text-amber-500 font-bold text-xs uppercase tracking-[0.2em]">
                   <LayersIcon className="w-4 h-4" />
                   <span>Resource Optimization Suite</span>
                 </div>
-                <h2 className="text-3xl font-bold text-white tracking-tight leading-tight">Mesh LOD Manager</h2>
-                <p className="text-[#8D8D99]">Configure hierarquias de níveis de detalhe para otimizar a performance de renderização em massa.</p>
+                <h2 className="text-3xl font-bold text-md-text-strong tracking-tight leading-tight">Mesh LOD Manager</h2>
+                <p className="text-md-text-muted">Configure hierarquias de níveis de detalhe para otimizar a performance de renderização em massa.</p>
               </header>
 
               <div className="grid grid-cols-1 gap-8">
-                   <div className="bg-[#121214] border border-[#29292E] rounded-3xl overflow-hidden shadow-2xl">
-                      <div className="p-8 border-b border-[#29292E] flex items-center justify-between bg-white/[0.02]">
+                   <div className="bg-md-surface2 border border-md-border rounded-3xl overflow-hidden shadow-2xl">
+                      <div className="p-8 border-b border-md-border flex items-center justify-between bg-white/[0.02]">
                          <div className="flex items-center gap-6">
-                            <div className="w-16 h-16 bg-[#0A0A0B] rounded-2xl flex items-center justify-center border border-white/5">
-                               <LayersIcon className="w-8 h-8 text-[#4D4D57]" />
+                            <div className="w-16 h-16 bg-md-surface1 rounded-2xl flex items-center justify-center border border-white/5">
+                               <LayersIcon className="w-8 h-8 text-md-text-muted" />
                             </div>
                             <div>
-                               <h3 className="text-xl font-bold text-white uppercase tracking-tight">Active LOD Map</h3>
-                               <p className="text-xs text-[#8D8D99] font-mono">{selectedActorMeshPath || 'Select an actor with a Static Mesh to configure LODs'}</p>
+                               <h3 className="text-xl font-bold text-md-text-strong uppercase tracking-tight">Active LOD Map</h3>
+                               <p className="text-xs text-md-text-muted font-mono">{selectedActorMeshPath || 'Select an actor with a Static Mesh to configure LODs'}</p>
                             </div>
                          </div>
                          <div className="flex items-center gap-4">
                             <div className="text-right">
-                               <p className="text-[10px] text-[#4D4D57] font-bold uppercase">Target Levels</p>
-                               <p className="text-xl font-black text-white">{currentLODConfig.length}</p>
+                               <p className="text-[10px] text-md-text-muted font-bold uppercase">Target Levels</p>
+                               <p className="text-xl font-black text-md-text-strong">{currentLODConfig.length}</p>
                             </div>
                             <button 
                               onClick={() => handleApplyLODs(selectedActorMeshPath || '', currentLODConfig)}
                               disabled={loading || !selectedActorMeshPath}
-                              className="px-6 py-3 bg-amber-500 disabled:opacity-30 disabled:cursor-not-allowed text-black font-black uppercase text-[11px] rounded-xl hover:bg-amber-400 transition-all flex items-center gap-2 shadow-lg shadow-amber-500/10"
+                              className="px-6 py-3 bg-amber-500 disabled:opacity-30 disabled:cursor-not-allowed text-black font-black uppercase text-[11px] rounded-2xl hover:bg-amber-400 transition-all flex items-center gap-2 shadow-lg shadow-amber-500/10"
                             >
                                <Zap className="w-4 h-4 fill-current" />
                                Deploy LOD Pipeline
@@ -1542,7 +1553,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                               {idx > 0 && (
                                 <button 
                                   onClick={() => handleRemoveLODLevel(idx)}
-                                  className="absolute top-2 right-2 p-1 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                                  className="absolute top-2 right-2 p-2 text-md-text-strong/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
@@ -1550,20 +1561,20 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                               <div className="space-y-6 relative z-10">
                                  <div className="flex items-center justify-between">
                                     <span className="px-2 py-1 bg-amber-500/20 text-amber-500 text-[10px] font-black rounded uppercase tracking-widest">LEVEL {lod.level}</span>
-                                    <span className="text-[9px] text-[#4D4D57] font-black uppercase tracking-widest">{lod.status}</span>
+                                    <span className="text-[9px] text-md-text-muted font-black uppercase tracking-widest">{lod.status}</span>
                                  </div>
                                  
                                  <div className="space-y-3">
                                    <div className="flex justify-between items-end">
-                                      <span className="text-[10px] text-[#8D8D99] font-black uppercase">Complexity</span>
-                                      <div className="flex items-end gap-1">
+                                      <span className="text-[10px] text-md-text-muted font-black uppercase">Complexity</span>
+                                      <div className="flex items-end gap-2">
                                         <input 
                                           type="text"
                                           value={lod.tris}
                                           onChange={(e) => handleUpdateLODLevel(idx, { tris: e.target.value })}
-                                          className="bg-transparent text-2xl font-black text-white tracking-tighter w-16 text-right focus:outline-none"
+                                          className="bg-transparent text-2xl font-black text-md-text-strong tracking-tighter w-16 text-right focus:outline-none"
                                         />
-                                        <span className="text-[10px] text-[#4D4D57] mb-1 font-bold">%</span>
+                                        <span className="text-[10px] text-md-text-muted mb-1 font-bold">%</span>
                                       </div>
                                    </div>
                                    <input 
@@ -1571,12 +1582,12 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                                      min="1" max="100" step="1"
                                      value={lod.tris}
                                      onChange={(e) => handleUpdateLODLevel(idx, { tris: e.target.value })}
-                                     className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                                     className="w-full h-1 bg-white/5 rounded-xl appearance-none cursor-pointer accent-amber-500"
                                    />
                                  </div>
 
                                  <div className="space-y-3">
-                                    <div className="flex justify-between text-[10px] text-[#8D8D99] font-black uppercase">
+                                    <div className="flex justify-between text-[10px] text-md-text-muted font-black uppercase">
                                        <span>Screen Size</span>
                                        <span className="text-amber-500 font-mono">{Number(lod.distance).toFixed(3)}</span>
                                     </div>
@@ -1585,9 +1596,9 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                                       min="0.01" max="1.0" step="0.01"
                                       value={lod.distance}
                                       onChange={(e) => handleUpdateLODLevel(idx, { distance: parseFloat(e.target.value) })}
-                                      className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                                      className="w-full h-1 bg-white/5 rounded-xl appearance-none cursor-pointer accent-amber-500"
                                     />
-                                    <div className="flex justify-between text-[7px] text-[#4D4D57] font-black uppercase tracking-tighter">
+                                    <div className="flex justify-between text-[7px] text-md-text-muted font-black uppercase tracking-tighter">
                                        <span>Close (1.0)</span>
                                        <span>Far (0.0)</span>
                                     </div>
@@ -1599,12 +1610,12 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                            onClick={handleAddLODLevel}
                            className="border-2 border-dashed border-white/5 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 hover:bg-amber-500/5 hover:border-amber-500/20 transition-all group"
                          >
-                            <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center text-[#4D4D57] group-hover:text-amber-500 group-hover:scale-110 transition-all border border-white/5">
+                            <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center text-md-text-muted group-hover:text-amber-500 group-hover:scale-110 transition-all border border-white/5">
                                <Plus className="w-6 h-6" />
                             </div>
                             <div className="text-center">
-                              <span className="text-[10px] font-black text-[#4D4D57] uppercase tracking-widest group-hover:text-amber-500">Inject Level</span>
-                              <p className="text-[8px] text-[#4D4D57] font-bold mt-1 max-w-[100px]">Add a new LOD to the pipeline</p>
+                              <span className="text-[10px] font-black text-md-text-muted uppercase tracking-widest group-hover:text-amber-500">Inject Level</span>
+                              <p className="text-[8px] text-md-text-muted font-bold mt-1 max-w-[100px]">Add a new LOD to the pipeline</p>
                             </div>
                          </button>
                       </div>
@@ -1617,20 +1628,20 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                   <h3 className="font-black text-amber-500 uppercase tracking-widest text-xs">Optimization Deterministics</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <p className="text-[11px] text-[#8D8D99] leading-relaxed font-medium uppercase">
+                  <p className="text-[11px] text-md-text-muted leading-relaxed font-medium uppercase">
                     A redução de triângulos via Remote Control utiliza o motor de Proxy Mesh nativo da Unreal. 
                     O pipeline gera novos buffers de geometria de forma não destrutiva, preservando o asset original no Source Model 0. 
                   </p>
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-white/40 uppercase">
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-md-text-strong/40 uppercase">
                       <div className="w-1 h-1 bg-amber-500 rounded-full" />
                       Mínimo de 3 níveis para distâncias escaláveis.
                     </div>
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-white/40 uppercase">
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-md-text-strong/40 uppercase">
                       <div className="w-1 h-1 bg-amber-500 rounded-full" />
                       Triangulação decrescente garante performance.
                     </div>
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-white/40 uppercase">
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-md-text-strong/40 uppercase">
                       <div className="w-1 h-1 bg-amber-500 rounded-full" />
                       Screen Size 0.01 é o limite de renderização visível.
                     </div>
@@ -1653,22 +1664,22 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
         );
       case 'animations':
         return (
-          <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-[#050505]">
+          <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-md-bg">
              <div className="max-w-4xl mx-auto space-y-12">
               <header className="space-y-2">
                 <div className="flex items-center gap-2 text-rose-500 font-bold text-xs uppercase tracking-[0.2em]">
                   <Video className="w-4 h-4" />
                   <span>Skeletal Animation Core</span>
                 </div>
-                <h2 className="text-3xl font-bold text-white tracking-tight leading-tight">Animation Controller</h2>
-                <p className="text-[#8D8D99]">Gerencie ativos de animação e controle a reprodução de skeletal meshes em tempo real.</p>
+                <h2 className="text-3xl font-bold text-md-text-strong tracking-tight leading-tight">Animation Controller</h2>
+                <p className="text-md-text-muted">Gerencie ativos de animação e controle a reprodução de skeletal meshes em tempo real.</p>
               </header>
 
-              <div className="bg-[#121214] border border-[#29292E] rounded-3xl p-8 space-y-6 shadow-2xl">
+              <div className="bg-md-surface2 border border-md-border rounded-3xl p-8 space-y-6 shadow-2xl">
                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                        <Zap className="w-5 h-5 text-amber-500 animate-pulse" />
-                       <h3 className="text-sm font-black text-white uppercase tracking-widest italic">Global Simulation Speed</h3>
+                       <h3 className="text-sm font-black text-md-text-strong uppercase tracking-widest italic">Global Simulation Speed</h3>
                     </div>
                     <span className="text-xl font-black text-amber-500 font-mono tracking-tighter">{globalTimeDilation.toFixed(2)}x</span>
                  </div>
@@ -1681,33 +1692,33 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                       onChange={(e) => handleGlobalTimeDilation(parseFloat(e.target.value))}
                       className="w-full h-2 bg-[#202024] rounded-full appearance-none accent-amber-500 outline-none"
                     />
-                    <div className="flex justify-between text-[10px] font-bold text-[#4D4D57] uppercase tracking-widest">
-                       <button onClick={() => handleGlobalTimeDilation(0.1)} className="hover:text-white transition-colors">Slow Mo (0.1x)</button>
-                       <button onClick={() => handleGlobalTimeDilation(1.0)} className="hover:text-white transition-colors">Normal (1.0x)</button>
-                       <button onClick={() => handleGlobalTimeDilation(2.0)} className="hover:text-white transition-colors">Fast (2.0x)</button>
-                       <button onClick={() => handleGlobalTimeDilation(4.0)} className="hover:text-white transition-colors">Hyper (4.0x)</button>
+                    <div className="flex justify-between text-[10px] font-bold text-md-text-muted uppercase tracking-widest">
+                       <button onClick={() => handleGlobalTimeDilation(0.1)} className="hover:text-md-text-strong transition-colors">Slow Mo (0.1x)</button>
+                       <button onClick={() => handleGlobalTimeDilation(1.0)} className="hover:text-md-text-strong transition-colors">Normal (1.0x)</button>
+                       <button onClick={() => handleGlobalTimeDilation(2.0)} className="hover:text-md-text-strong transition-colors">Fast (2.0x)</button>
+                       <button onClick={() => handleGlobalTimeDilation(4.0)} className="hover:text-md-text-strong transition-colors">Hyper (4.0x)</button>
                     </div>
                  </div>
               </div>
 
               <div className="grid grid-cols-1 gap-6">
                 {skeletalMeshes.map((mesh) => (
-                  <div key={mesh.id} className="bg-[#121214] border border-[#29292E] rounded-3xl p-8 flex flex-col md:flex-row items-center gap-8">
+                  <div key={mesh.id} className="bg-md-surface2 border border-md-border rounded-3xl p-8 flex flex-col md:flex-row items-center gap-8">
                      <div className="w-24 h-24 bg-rose-500/10 rounded-2xl flex items-center justify-center border border-rose-500/20">
                         <Video className="w-10 h-10 text-rose-500" />
                      </div>
                      <div className="flex-1 space-y-4 text-center md:text-left">
                         <div className="flex items-center justify-between">
                           <div>
-                            <h3 className="text-xl font-bold text-white uppercase tracking-tighter italic">{mesh.id}</h3>
-                            <p className="text-[10px] text-[#4D4D57] font-mono leading-tight">{mesh.assetPath}</p>
+                            <h3 className="text-xl font-bold text-md-text-strong uppercase tracking-tighter italic">{mesh.id}</h3>
+                            <p className="text-[10px] text-md-text-muted font-mono leading-tight">{mesh.assetPath}</p>
                           </div>
                           
                           <button 
                             onClick={() => handleAnimationControl(mesh.id, 'loop', !mesh.loop)}
                             className={cn(
-                              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase transition-all border",
-                              mesh.loop ? "bg-blue-500/10 text-blue-500 border-blue-500/20" : "bg-white/5 text-[#4D4D57] border-white/10"
+                              "flex items-center gap-2.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase transition-all border",
+                              mesh.loop ? "bg-md-primary text-md-on-primary/10 text-md-primary border-blue-500/20" : "bg-white/5 text-md-text-muted border-white/10"
                             )}
                           >
                             <Repeat className={cn("w-3 h-3", mesh.loop && "animate-spin-slow")} />
@@ -1723,8 +1734,8 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                                className={cn(
                                  "px-2.5 py-1 rounded text-[9px] font-bold uppercase transition-all tracking-wider",
                                  mesh.currentAnim === anim 
-                                   ? "bg-rose-500 text-white shadow-lg shadow-rose-500/20" 
-                                   : "bg-white/5 text-[#8D8D99] hover:bg-white/10 hover:text-white"
+                                   ? "bg-rose-500 text-md-text-strong shadow-lg shadow-rose-500/20" 
+                                   : "bg-white/5 text-md-text-muted hover:bg-white/10 hover:text-md-text-strong"
                                )}
                              >
                                {anim}
@@ -1739,14 +1750,14 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                            )}>
                              {mesh.playing ? '● PLAYING' : '○ PAUSED'}
                            </span>
-                           <span className="px-2 py-1 bg-white/5 rounded text-[10px] font-bold text-blue-400">FPS ADAPTIVE: ENABLED</span>
+                           <span className="px-2 py-1 bg-white/5 rounded text-[10px] font-bold text-md-primary">FPS ADAPTIVE: ENABLED</span>
                         </div>
                      </div>
                      <div className="flex items-center gap-3 bg-black/40 p-2 rounded-2xl border border-white/5">
                         <button 
                           onClick={() => handleAnimationControl(mesh.id, mesh.playing ? 'pause' : 'play')}
                           className={cn(
-                            "w-12 h-12 rounded-xl flex items-center justify-center transition-all",
+                            "w-12 h-12 rounded-2xl flex items-center justify-center transition-all",
                             mesh.playing ? "bg-amber-500/20 text-amber-500 hover:bg-amber-500/30" : "bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30"
                           )}
                         >
@@ -1754,7 +1765,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                         </button>
                         <button 
                           onClick={() => handleAnimationControl(mesh.id, 'stop')}
-                          className="w-12 h-12 bg-rose-500/20 text-rose-500 hover:bg-rose-500/30 rounded-xl flex items-center justify-center transition-all"
+                          className="w-12 h-12 bg-rose-500/20 text-rose-500 hover:bg-rose-500/30 rounded-2xl flex items-center justify-center transition-all"
                         >
                           <RotateCcw className="w-5 h-5" />
                         </button>
@@ -1762,7 +1773,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                         <div className="w-px h-8 bg-white/10" />
                         
                         <div className="px-4 space-y-1">
-                           <label className="text-[9px] text-[#4D4D57] font-bold uppercase block text-center">Play Rate</label>
+                           <label className="text-[9px] text-md-text-muted font-bold uppercase block text-center">Play Rate</label>
                            <div className="flex items-center gap-3">
                               <input 
                                 type="range" 
@@ -1771,7 +1782,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                                 onChange={(e) => handleAnimationControl(mesh.id, 'rate', parseFloat(e.target.value))}
                                 className="w-24 accent-rose-500"
                               />
-                              <span className="text-xs font-mono text-white w-8">{mesh.playRate}x</span>
+                              <span className="text-xs font-mono text-md-text-strong w-8">{mesh.playRate}x</span>
                            </div>
                         </div>
                      </div>
@@ -1784,7 +1795,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                   <AlertCircle className="w-5 h-5 text-rose-500" />
                   <h3 className="font-bold text-rose-500 uppercase tracking-widest text-sm">Skeletal Hierarchy Warning</h3>
                 </div>
-                <p className="text-sm text-[#8D8D99] leading-relaxed">
+                <p className="text-sm text-md-text-muted leading-relaxed">
                   Certifique-se de que o Asset Path aponta para uma instância válida do actor na cena (World Outliner). 
                   A reprodução direta via Remote Control requer que o actor esteja configurado com 'Animation Mode' definido como 'Use Animation Asset'.
                 </p>
@@ -1818,7 +1829,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
         return <AssetScraperUI addLog={addLog} />;
        case 'controller':
         return (
-          <div className="flex-1 p-8 overflow-y-auto custom-scrollbar bg-[#050505]">
+          <div className="flex-1 p-8 overflow-y-auto custom-scrollbar bg-md-bg">
              <div className="max-w-4xl mx-auto space-y-8">
                 <VirtualController 
                    isActive={true} 
@@ -1917,7 +1928,7 @@ except Exception as e:
         );
       default:
         return (
-          <div className="flex-1 flex items-center justify-center bg-[#050505] text-[#4D4D57]">
+          <div className="flex-1 flex items-center justify-center bg-md-bg text-md-text-muted">
             <div className="text-center space-y-4">
               <Monitor className="w-12 h-12 mx-auto opacity-20" />
               <p className="text-[10px] font-black uppercase tracking-[0.4em]">Módulo em Desenvolvimento ou Restrito</p>
@@ -1928,7 +1939,7 @@ except Exception as e:
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0B] text-[#E1E1E6] font-sans selection:bg-[#9462E1]/30">
+    <div className="min-h-screen bg-md-surface1 text-md-text font-sans selection:bg-md-primary text-md-on-primary/30">
       {/* Code Viewer Modal */}
       <AnimatePresence>
         {viewingCode && currentAIResponse && (
@@ -1942,16 +1953,16 @@ except Exception as e:
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-[#121214] border border-[#29292E] rounded-2xl w-full max-w-4xl max-h-[80vh] flex flex-col shadow-2xl"
+              className="bg-md-surface2 border border-md-border rounded-2xl w-full max-w-4xl max-h-[80vh] flex flex-col shadow-2xl"
             >
-              <div className="p-6 border-b border-[#202024] flex items-center justify-between">
+              <div className="p-6 border-b border-md-border flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Code2 className="text-[#9462E1]" />
+                  <Code2 className="text-md-primary" />
                   <h3 className="font-bold text-lg">Detalhes de Implementação</h3>
                 </div>
                 <button 
                   onClick={() => setViewingCode(false)}
-                  className="p-2 hover:bg-[#202024] rounded-lg transition-colors"
+                  className="p-2 hover:bg-[#202024] rounded-xl transition-colors"
                 >
                   <AlertCircle className="w-5 h-5 rotate-45" />
                 </button>
@@ -1960,8 +1971,8 @@ except Exception as e:
               <div className="flex-1 overflow-auto p-6 space-y-6 custom-scrollbar">
                 {currentAIResponse.blueprintCode && (
                   <div className="space-y-3">
-                    <h4 className="text-xs font-bold text-[#8D8D99] uppercase tracking-widest">Procedimento Blueprint</h4>
-                    <pre className="p-4 bg-[#0A0A0B] border border-[#29292E] rounded-xl text-sm font-mono text-blue-300 overflow-x-auto">
+                    <h4 className="text-xs font-bold text-md-text-muted uppercase tracking-widest">Procedimento Blueprint</h4>
+                    <pre className="p-4 bg-md-surface1 border border-md-border rounded-2xl text-sm font-mono text-blue-300 overflow-x-auto">
                       {currentAIResponse.blueprintCode}
                     </pre>
                   </div>
@@ -1969,18 +1980,18 @@ except Exception as e:
                 
                 {currentAIResponse.cppCode && (
                   <div className="space-y-3">
-                    <h4 className="text-xs font-bold text-[#8D8D99] uppercase tracking-widest">Snippet C++ (UE5)</h4>
-                    <pre className="p-4 bg-[#0A0A0B] border border-[#29292E] rounded-xl text-sm font-mono text-green-300 overflow-x-auto">
+                    <h4 className="text-xs font-bold text-md-text-muted uppercase tracking-widest">Snippet C++ (UE5)</h4>
+                    <pre className="p-4 bg-md-surface1 border border-md-border rounded-2xl text-sm font-mono text-green-300 overflow-x-auto">
                       {currentAIResponse.cppCode}
                     </pre>
                   </div>
                 )}
 
                 <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-[#8D8D99] uppercase tracking-widest">Comandos de API (JSON payloads)</h4>
+                  <h4 className="text-xs font-bold text-md-text-muted uppercase tracking-widest">Comandos de API (JSON payloads)</h4>
                   <div className="space-y-2">
                     {currentAIResponse.commands.map((cmd, idx) => (
-                      <pre key={idx} className="p-4 bg-[#0A0A0B] border border-[#29292E] rounded-xl text-[11px] font-mono text-purple-300 overflow-x-auto">
+                      <pre key={idx} className="p-4 bg-md-surface1 border border-md-border rounded-2xl text-[11px] font-mono text-purple-300 overflow-x-auto">
                         {JSON.stringify(cmd, null, 2)}
                       </pre>
                     ))}
@@ -1988,10 +1999,10 @@ except Exception as e:
                 </div>
               </div>
 
-              <div className="p-6 border-t border-[#202024] flex justify-end">
+              <div className="p-6 border-t border-md-border flex justify-end">
                 <button 
                   onClick={() => setViewingCode(false)}
-                  className="bg-[#29292E] hover:bg-[#323238] text-white px-6 py-2 rounded-lg font-bold transition-all"
+                  className="bg-[#29292E] hover:bg-[#323238] text-md-text-strong px-6 py-2 rounded-xl font-bold transition-all"
                 >
                   Fechar
                 </button>
@@ -2002,10 +2013,10 @@ except Exception as e:
       </AnimatePresence>
 
       {/* Header */}
-      <header className="border-b border-[#202024] bg-[#121214] px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+      <header className="border-b border-md-border bg-md-surface2 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <Zap className="text-white w-6 h-6" />
+          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <Zap className="text-md-text-strong w-6 h-6" />
           </div>
           <div>
             <h1 className="font-bold text-lg tracking-tight">UE Architect</h1>
@@ -2014,11 +2025,11 @@ except Exception as e:
                 "w-2 h-2 rounded-full transition-all duration-500",
                 connection.connected ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]"
               )} />
-              <p className="text-xs text-[#8D8D99] font-medium">
+              <p className="text-xs text-md-text-muted font-medium">
                 {connection.connected ? `Runtime_V12: ${connection.port}` : "Link Offline"}
               </p>
               <div className="w-px h-3 bg-[#323238] mx-1" />
-              <div className="flex items-center gap-1.5 overflow-hidden">
+              <div className="flex items-center gap-2.5 overflow-hidden">
                  <span className={cn(
                    "text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-tighter",
                    ((systemHealth.status as any) === 'operational' || systemHealth.status === 'online') ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500"
@@ -2026,7 +2037,7 @@ except Exception as e:
                    AI: {systemHealth.status}
                  </span>
                  {systemHealth.memory && (
-                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/5 text-[#4D4D57] uppercase tracking-tighter">
+                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/5 text-md-text-muted uppercase tracking-tighter">
                      MEM: {((systemHealth.memory.used || 0) / 1024 / 1024).toFixed(0)}MB
                    </span>
                  )}
@@ -2036,12 +2047,20 @@ except Exception as e:
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="bg-[#202024] p-1 rounded-lg flex items-center gap-1">
+          <button
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            className="p-2 bg-md-surface3 text-md-text-muted hover:text-md-text-strong hover:bg-md-primary-hover rounded-full transition-all"
+            title="Toggle Theme"
+          >
+            {isDarkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-slate-800" />}
+          </button>
+          
+          <div className="bg-[#202024] p-2 rounded-xl flex items-center gap-2">
             <button 
               onClick={() => setActiveTab('cognitive')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'cognitive' ? "bg-purple-600 text-white shadow-lg shadow-purple-500/20" : "text-[#4D4D57] hover:text-white"
+                activeTab === 'cognitive' ? "bg-purple-600 text-md-text-strong shadow-lg shadow-purple-500/20" : "text-md-text-muted hover:text-md-text-strong"
               )}
             >
               COGNITIVE CORE
@@ -2050,7 +2069,7 @@ except Exception as e:
               onClick={() => setActiveTab('inspector')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'inspector' ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "text-[#4D4D57] hover:text-white"
+                activeTab === 'inspector' ? "bg-blue-600 text-md-text-strong shadow-lg shadow-blue-500/20" : "text-md-text-muted hover:text-md-text-strong"
               )}
             >
               SCENE HIERARCHY
@@ -2059,7 +2078,7 @@ except Exception as e:
               onClick={() => setActiveTab('console')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'console' ? "bg-[#9462E1] text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
+                activeTab === 'console' ? "bg-md-primary text-md-on-primary text-md-text-strong shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
               )}
             >
               CONSOLE
@@ -2068,7 +2087,7 @@ except Exception as e:
               onClick={() => setActiveTab('factory')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'factory' ? "bg-[#9462E1] text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
+                activeTab === 'factory' ? "bg-md-primary text-md-on-primary text-md-text-strong shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
               )}
             >
               SCRIPT FACTORY
@@ -2077,7 +2096,7 @@ except Exception as e:
               onClick={() => setActiveTab('world')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'world' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "text-[#4D4D57] hover:text-white"
+                activeTab === 'world' ? "bg-indigo-600 text-md-text-strong shadow-lg shadow-indigo-500/20" : "text-md-text-muted hover:text-md-text-strong"
               )}
             >
               WORLD SETTINGS
@@ -2086,7 +2105,7 @@ except Exception as e:
               onClick={() => setActiveTab('streaming')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'streaming' ? "bg-[#9462E1] text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
+                activeTab === 'streaming' ? "bg-md-primary text-md-on-primary text-md-text-strong shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
               )}
             >
               STREAMING
@@ -2095,7 +2114,7 @@ except Exception as e:
               onClick={() => setActiveTab('materials')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'materials' ? "bg-[#9462E1] text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
+                activeTab === 'materials' ? "bg-md-primary text-md-on-primary text-md-text-strong shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
               )}
             >
               PBR FORGE
@@ -2104,7 +2123,7 @@ except Exception as e:
               onClick={() => setActiveTab('animations')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'animations' ? "bg-[#9462E1] text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
+                activeTab === 'animations' ? "bg-md-primary text-md-on-primary text-md-text-strong shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
               )}
             >
               ANIMATIONS
@@ -2113,7 +2132,7 @@ except Exception as e:
               onClick={() => setActiveTab('cinematics')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'cinematics' ? "bg-[#9462E1] text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
+                activeTab === 'cinematics' ? "bg-md-primary text-md-on-primary text-md-text-strong shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
               )}
             >
               CINEMATICS
@@ -2122,7 +2141,7 @@ except Exception as e:
               onClick={() => setActiveTab('controller')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'controller' ? "bg-cyan-600 text-white shadow-lg shadow-cyan-500/20" : "text-[#8D8D99] hover:text-white"
+                activeTab === 'controller' ? "bg-cyan-600 text-md-text-strong shadow-lg shadow-cyan-500/20" : "text-md-text-muted hover:text-md-text-strong"
               )}
             >
               CONTROLLER
@@ -2131,7 +2150,7 @@ except Exception as e:
               onClick={() => setActiveTab('lod')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'lod' ? "bg-amber-500 text-black shadow-lg" : "text-[#8D8D99] hover:text-white"
+                activeTab === 'lod' ? "bg-amber-500 text-black shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
               )}
             >
               LOD MANAGER
@@ -2140,7 +2159,7 @@ except Exception as e:
               onClick={() => setActiveTab('scraper')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'scraper' ? "bg-emerald-500 text-black shadow-lg" : "text-[#8D8D99] hover:text-white"
+                activeTab === 'scraper' ? "bg-emerald-500 text-black shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
               )}
             >
               ASSET SCRAPER
@@ -2149,7 +2168,7 @@ except Exception as e:
               onClick={() => setActiveTab('laboratory')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'laboratory' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "text-[#8D8D99] hover:text-white"
+                activeTab === 'laboratory' ? "bg-indigo-600 text-md-text-strong shadow-lg shadow-indigo-500/20" : "text-md-text-muted hover:text-md-text-strong"
               )}
             >
               LABORATORY
@@ -2158,7 +2177,7 @@ except Exception as e:
               onClick={() => setActiveTab('audit')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'audit' ? "bg-blue-500 text-white shadow-lg" : "text-[#8D8D99] hover:text-white"
+                activeTab === 'audit' ? "bg-md-primary text-md-on-primary text-md-text-strong shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
               )}
             >
               AUDIT LOG
@@ -2168,7 +2187,7 @@ except Exception as e:
           <button 
             id="settings-btn"
             onClick={() => setShowSettings(!showSettings)}
-            className="p-2 hover:bg-[#202024] rounded-lg transition-colors text-[#8D8D99] hover:text-white"
+            className="p-2 hover:bg-[#202024] rounded-xl transition-colors text-md-text-muted hover:text-md-text-strong"
           >
             <Settings className="w-5 h-5" />
           </button>
@@ -2177,32 +2196,32 @@ except Exception as e:
 
       <main className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_400px] h-[calc(100vh-73px)]">
         {/* Main Interface */}
-        <section className="flex flex-col h-full border-r border-[#202024] overflow-hidden">
+        <section className="flex flex-col h-full border-r border-md-border overflow-hidden">
           {renderTabContent()}
 
           {/* Prompt Input */}
-          <div className="p-6 bg-[#121214] border-t border-[#202024] relative">
+          <div className="p-6 bg-md-surface2 border-t border-md-border relative">
             {currentAIResponse && (
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="absolute left-6 right-6 bottom-full mb-4 bg-[#1E1E21] border border-[#323238] rounded-xl shadow-2xl p-4 overflow-hidden"
+                className="absolute left-6 right-6 bottom-full mb-4 bg-md-surface3 border border-md-border-hover rounded-2xl shadow-2xl p-4 overflow-hidden"
               >
                 <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2 text-xs font-bold text-[#9462E1] uppercase tracking-tighter">
+                  <div className="flex items-center gap-2 text-xs font-bold text-md-primary uppercase tracking-tighter">
                     <Cpu className="w-4 h-4" />
                     <span>Sugestão da IA Gerada</span>
                   </div>
                   <button 
                     onClick={() => setCurrentAIResponse(null)}
-                    className="text-xs text-[#8D8D99] hover:text-white"
+                    className="text-xs text-md-text-muted hover:text-md-text-strong"
                   >
                     Descartar
                   </button>
                 </div>
                 
                 <div className="space-y-4">
-                  <p className="text-sm text-[#E1E1E6] leading-relaxed italic border-l-2 border-[#9462E1] pl-3">
+                  <p className="text-sm text-md-text leading-relaxed italic border-l-2 border-[#9462E1] pl-3">
                     "{currentAIResponse.explanation}"
                   </p>
                   
@@ -2213,7 +2232,7 @@ except Exception as e:
                         executeCommands(currentAIResponse.commands);
                         setCurrentAIResponse(null);
                       }}
-                      className="flex items-center justify-center gap-2 bg-[#9462E1] hover:bg-[#A970FF] text-white font-bold py-2.5 rounded-lg transition-all"
+                      className="flex items-center justify-center gap-2 bg-md-primary text-md-on-primary hover:bg-md-primary-hover text-md-text-strong font-bold py-2.5 rounded-xl transition-all"
                     >
                       <Play className="w-4 h-4 fill-current" />
                       Executar na Unreal
@@ -2221,7 +2240,7 @@ except Exception as e:
                     <button 
                       id="view-code-btn"
                       onClick={() => setViewingCode(true)}
-                      className="flex items-center justify-center gap-2 bg-[#29292E] hover:bg-[#323238] text-white font-bold py-2.5 rounded-lg transition-all"
+                      className="flex items-center justify-center gap-2 bg-[#29292E] hover:bg-[#323238] text-md-text-strong font-bold py-2.5 rounded-xl transition-all"
                     >
                       <Code2 className="w-4 h-4" />
                       Ver Código
@@ -2239,13 +2258,13 @@ except Exception as e:
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder="Ex: Crie um cubo metálico no centro da cena com luz azul..."
                 disabled={loading}
-                className="w-full bg-[#0A0A0B] border border-[#29292E] rounded-xl px-4 py-4 pr-32 focus:outline-none focus:border-[#9462E1] focus:ring-1 focus:ring-[#9462E1] transition-all placeholder:text-[#4D4D57]"
+                className="w-full bg-md-surface1 border border-md-border rounded-2xl px-4 py-4 pr-32 focus:outline-none focus:border-[#9462E1] focus:ring-1 focus:ring-[#9462E1] transition-all placeholder:text-md-text-muted"
               />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+              <div className="absolute right-2 top-2/2 -translate-y-1/2 flex items-center gap-2">
                 <button 
                   type="submit"
                   disabled={loading || !prompt.trim()}
-                  className="bg-[#9462E1] disabled:bg-[#29292E] disabled:text-[#4D4D57] hover:bg-[#A970FF] text-white font-bold px-4 py-2 rounded-lg flex items-center gap-2 transition-all shadow-lg shadow-[#9462E1]/10"
+                  className="bg-md-primary text-md-on-primary disabled:bg-[#29292E] disabled:text-md-text-muted hover:bg-md-primary-hover text-md-text-strong font-bold px-4 py-2 rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-[#9462E1]/10"
                 >
                   {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send className="w-4 h-4" />}
                   <span>Enviar</span>
@@ -2256,44 +2275,44 @@ except Exception as e:
         </section>
 
         {/* Sidebar Info & History */}
-        <aside className="bg-[#121214] p-6 flex flex-col h-full overflow-hidden">
+        <aside className="bg-md-surface2 p-6 flex flex-col h-full overflow-hidden">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="font-bold text-sm text-[#7C7C8A] uppercase tracking-widest flex items-center gap-2">
-              <ChevronRight className="w-4 h-4 text-[#9462E1]" />
+            <h2 className="font-bold text-sm text-md-text-muted uppercase tracking-widest flex items-center gap-2">
+              <ChevronRight className="w-4 h-4 text-md-primary" />
               Painel de Controle
             </h2>
           </div>
 
           <div className="space-y-6 flex-1 overflow-auto custom-scrollbar">
             {/* Connection Card */}
-            <div className="p-4 rounded-xl bg-[#0A0A0B] border border-[#29292E] space-y-4">
+            <div className="p-4 rounded-2xl bg-md-surface1 border border-md-border space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-[#8D8D99]">CONFIGURAÇÃO UE</span>
+                <span className="text-xs font-bold text-md-text-muted">CONFIGURAÇÃO UE</span>
                 {connection.connected ? (
-                  <span className="text-[10px] text-green-400 font-bold bg-green-400/10 px-2 py-0.5 rounded-full">ATIVO</span>
+                  <span className="text-[10px] text-green-400 font-bold bg-green-400/10 px-3 py-1 rounded-full">ATIVO</span>
                 ) : (
-                  <span className="text-[10px] text-red-400 font-bold bg-red-400/10 px-2 py-0.5 rounded-full">OFFLINE</span>
+                  <span className="text-[10px] text-red-400 font-bold bg-red-400/10 px-3 py-1 rounded-full">OFFLINE</span>
                 )}
               </div>
               
               <div className="space-y-2">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-[#4D4D57] font-bold">HOST URL</label>
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] text-md-text-muted font-bold">HOST URL</label>
                   <input 
                     type="text" 
                     value={connection.url}
                     onChange={(e) => setConnection(v => ({ ...v, url: e.target.value }))}
-                    className="bg-[#121214] border border-[#29292E] rounded px-2 py-1 text-xs focus:outline-none focus:border-[#9462E1]" 
+                    className="bg-md-surface2 border border-md-border rounded px-2 py-1 text-xs focus:outline-none focus:border-[#9462E1]" 
                     placeholder="http://localhost"
                   />
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-[#4D4D57] font-bold">PORTA API</label>
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] text-md-text-muted font-bold">PORTA API</label>
                   <input 
                     type="text" 
                     value={connection.port}
                     onChange={(e) => setConnection(v => ({ ...v, port: e.target.value }))}
-                    className="bg-[#121214] border border-[#29292E] rounded px-2 py-1 text-xs focus:outline-none focus:border-[#9462E1]" 
+                    className="bg-md-surface2 border border-md-border rounded px-2 py-1 text-xs focus:outline-none focus:border-[#9462E1]" 
                     placeholder="8080"
                   />
                 </div>
@@ -2301,7 +2320,7 @@ except Exception as e:
 
               <button 
                 onClick={handleUEConnectionTest}
-                className="w-full py-2 bg-[#29292E] hover:bg-[#323238] rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2"
+                className="w-full py-2 bg-[#29292E] hover:bg-[#323238] rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
               >
                 <Activity className="w-3.5 h-3.5" />
                 Testar Conexão
@@ -2311,13 +2330,13 @@ except Exception as e:
             {/* Command History Quick Access */}
             {commandHistory.length > 0 && (
               <div className="space-y-3">
-                <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest pl-1">Fixados</h3>
+                <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest pl-1">Fixados</h3>
                 <div className="flex flex-wrap gap-2">
                   {commandHistory.filter(c => c.pinned).map((cmd) => (
                     <button 
                       key={cmd.id}
                       onClick={() => setPrompt(cmd.text)}
-                      className="text-[10px] bg-[#9462E1]/10 hover:bg-[#9462E1]/20 text-[#9462E1] px-2 py-1 rounded transition-all border border-[#9462E1]/30 truncate max-w-[180px] flex items-center gap-1.5"
+                      className="text-[10px] bg-md-primary text-md-on-primary/10 hover:bg-md-primary text-md-on-primary/20 text-md-primary px-2 py-1 rounded transition-all border border-[#9462E1]/30 truncate max-w-[180px] flex items-center gap-2.5"
                     >
                       <Bookmark className="w-2.5 h-2.5" fill="currentColor" />
                       {cmd.text}
@@ -2330,7 +2349,7 @@ except Exception as e:
             {/* AI Architecture Vision */}
             <div className="space-y-6">
               <div className="space-y-3">
-                <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest pl-1">Ações Rápidas de Câmera</h3>
+                <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest pl-1">Ações Rápidas de Câmera</h3>
                 <div className="grid grid-cols-1 gap-2">
                   <button 
                     onClick={() => {
@@ -2342,105 +2361,105 @@ except Exception as e:
                            if (btn) btn.click();
                         }, 500);
                     }}
-                    className="text-left p-3 bg-indigo-500/10 rounded-lg hover:bg-indigo-500/20 border border-indigo-500/30 transition-all group"
+                    className="text-left p-3 bg-indigo-500/10 rounded-xl hover:bg-indigo-500/20 border border-indigo-500/30 transition-all group"
                   >
                     <p className="text-[10px] font-bold text-indigo-400 mb-1">ORBIT FOCUS</p>
-                    <p className="text-xs text-[#8D8D99] group-hover:text-white">Rotacionar em volta do Ator Selecionado</p>
+                    <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Rotacionar em volta do Ator Selecionado</p>
                   </button>
                   <button 
                     onClick={() => setPrompt("Crie uma CineCameraActor na posição X=500, Y=0, Z=200 olhando para a origem com FOV 60")}
-                    className="text-left p-3 bg-[#0A0A0B]/50 rounded-lg hover:bg-[#9462E1]/10 border border-transparent hover:border-[#9462E1]/30 transition-all group"
+                    className="text-left p-3 bg-md-surface1/50 rounded-xl hover:bg-md-primary text-md-on-primary/10 border border-transparent hover:border-[#9462E1]/30 transition-all group"
                   >
-                    <p className="text-[10px] font-bold text-[#9462E1] mb-1">CINE CAMERA</p>
-                    <p className="text-xs text-[#8D8D99] group-hover:text-white">Spawn Câmera Cinemática Configurável</p>
+                    <p className="text-[10px] font-bold text-md-primary mb-1">CINE CAMERA</p>
+                    <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Spawn Câmera Cinemática Configurável</p>
                   </button>
                   <button 
                     onClick={() => setPrompt("Mude o Field of View da câmera selecionada para 90 graus")}
-                    className="text-left p-3 bg-[#0A0A0B]/50 rounded-lg hover:bg-[#9462E1]/10 border border-transparent hover:border-[#9462E1]/30 transition-all group"
+                    className="text-left p-3 bg-md-surface1/50 rounded-xl hover:bg-md-primary text-md-on-primary/10 border border-transparent hover:border-[#9462E1]/30 transition-all group"
                   >
-                    <p className="text-[10px] font-bold text-blue-400 mb-1">LENS CONTROL</p>
-                    <p className="text-xs text-[#8D8D99] group-hover:text-white">Ajustar Campo de Visão (FOV)</p>
+                    <p className="text-[10px] font-bold text-md-primary mb-1">LENS CONTROL</p>
+                    <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Ajustar Campo de Visão (FOV)</p>
                   </button>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest pl-1">Materiais PBR</h3>
+                <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest pl-1">Materiais PBR</h3>
                 <div className="grid grid-cols-1 gap-2">
                   <button 
                     onClick={applyConcreteToSelected}
-                    className="text-left p-3 bg-amber-500/10 rounded-lg hover:bg-amber-500/20 border border-amber-500/30 transition-all group"
+                    className="text-left p-3 bg-amber-500/10 rounded-xl hover:bg-amber-500/20 border border-amber-500/30 transition-all group"
                   >
                     <p className="text-[10px] font-bold text-amber-500 mb-1">INDUSTRIAL CONCRETE</p>
-                    <p className="text-xs text-[#8D8D99] group-hover:text-white">Aplicar Concrete Industrial ao Selecionado</p>
+                    <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Aplicar Concrete Industrial ao Selecionado</p>
                   </button>
                   <button 
                     onClick={() => setPrompt("Aplique um material de Ouro Polido ao objeto selecionado (Metallic=1, Roughness=0.1, BaseColor=(1, 0.7, 0.1))")}
-                    className="text-left p-3 bg-[#0A0A0B]/50 rounded-lg hover:bg-[#9462E1]/10 border border-transparent hover:border-[#9462E1]/30 transition-all group"
+                    className="text-left p-3 bg-md-surface1/50 rounded-xl hover:bg-md-primary text-md-on-primary/10 border border-transparent hover:border-[#9462E1]/30 transition-all group"
                   >
                     <p className="text-[10px] font-bold text-amber-500 mb-1">GOLD PBR</p>
-                    <p className="text-xs text-[#8D8D99] group-hover:text-white">Material Metálico Dourado</p>
+                    <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Material Metálico Dourado</p>
                   </button>
                   <button 
                     onClick={() => setPrompt("Faça o objeto brilhar com uma luz neon vermelha intensa (Emissive=(10, 0, 0))")}
-                    className="text-left p-3 bg-[#0A0A0B]/50 rounded-lg hover:bg-[#9462E1]/10 border border-transparent hover:border-[#9462E1]/30 transition-all group"
+                    className="text-left p-3 bg-md-surface1/50 rounded-xl hover:bg-md-primary text-md-on-primary/10 border border-transparent hover:border-[#9462E1]/30 transition-all group"
                   >
                     <p className="text-[10px] font-bold text-red-500 mb-1">NEON GLOW</p>
-                    <p className="text-xs text-[#8D8D99] group-hover:text-white">Ajustar Emissão de Luz</p>
+                    <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Ajustar Emissão de Luz</p>
                   </button>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest pl-1">Skeletal Animations</h3>
+                <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest pl-1">Skeletal Animations</h3>
                 <div className="grid grid-cols-1 gap-2">
                   <button 
                     onClick={() => setPrompt("Configure o SK_Mannequin para usar o asset de animação 'AS_Run_Fwd' e coloque em loop com PlayRate 1.2")}
-                    className="text-left p-3 bg-[#0A0A0B]/50 rounded-lg hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-all group"
+                    className="text-left p-3 bg-md-surface1/50 rounded-xl hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-all group"
                   >
                     <p className="text-[10px] font-bold text-rose-500 mb-1">RUN CYCLE</p>
-                    <p className="text-xs text-[#8D8D99] group-hover:text-white">Aplicar Animação de Corrida</p>
+                    <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Aplicar Animação de Corrida</p>
                   </button>
                   <button 
                     onClick={() => setPrompt("Pause todas as animações do actor 'SK_Robotic_Arm' e volte para o frame inicial")}
-                    className="text-left p-3 bg-[#0A0A0B]/50 rounded-lg hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-all group"
+                    className="text-left p-3 bg-md-surface1/50 rounded-xl hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-all group"
                   >
                     <p className="text-[10px] font-bold text-amber-500 mb-1">HALT SEQUENCE</p>
-                    <p className="text-xs text-[#8D8D99] group-hover:text-white">Interromper e Resetar Reprodução</p>
+                    <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Interromper e Resetar Reprodução</p>
                   </button>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest pl-1">Otimização</h3>
+                <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest pl-1">Otimização</h3>
                 <div className="grid grid-cols-1 gap-2">
                   <button 
                     onClick={() => setPrompt("Configure 3 níveis de LOD para o mesh 'SM_Rock_01' com reduções de 100%, 50% e 25% de triângulos")}
-                    className="text-left p-3 bg-[#0A0A0B]/50 rounded-lg hover:bg-[#9462E1]/10 border border-transparent hover:border-[#9462E1]/30 transition-all group"
+                    className="text-left p-3 bg-md-surface1/50 rounded-xl hover:bg-md-primary text-md-on-primary/10 border border-transparent hover:border-[#9462E1]/30 transition-all group"
                   >
                     <p className="text-[10px] font-bold text-green-500 mb-1">AUTO LOD</p>
-                    <p className="text-xs text-[#8D8D99] group-hover:text-white">Gerar Níveis de Detalhe</p>
+                    <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Gerar Níveis de Detalhe</p>
                   </button>
                   <button 
                     onClick={() => setPrompt("Aplique uma política de LOD agressiva para todos os Static Meshes na pasta /Game/Vegetation/ com base em distância do jogador")}
-                    className="text-left p-3 bg-[#0A0A0B]/50 rounded-lg hover:bg-amber-500/10 border border-transparent hover:border-amber-500/30 transition-all group"
+                    className="text-left p-3 bg-md-surface1/50 rounded-xl hover:bg-amber-500/10 border border-transparent hover:border-amber-500/30 transition-all group"
                   >
                     <p className="text-[10px] font-bold text-amber-500 mb-1">BATCH OPTIMIZE</p>
-                    <p className="text-xs text-[#8D8D99] group-hover:text-white">Otimização em Massa de Ativos</p>
+                    <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Otimização em Massa de Ativos</p>
                   </button>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest pl-1">Auditoria de Sistema</h3>
-                <div className="bg-[#0A0A0B]/50 rounded-xl border border-[#29292E] p-4 space-y-4">
+                <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest pl-1">Auditoria de Sistema</h3>
+                <div className="bg-md-surface1/50 rounded-2xl border border-md-border p-4 space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-[#8D8D99] uppercase font-bold">Integridade</span>
+                    <span className="text-[10px] text-md-text-muted uppercase font-bold">Integridade</span>
                     <span className="text-[10px] text-emerald-500 font-mono">ESTÁVEL</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-[#8D8D99] uppercase font-bold">Criptografia</span>
-                    <span className="text-[10px] text-blue-400 font-mono">AES-256</span>
+                    <span className="text-[10px] text-md-text-muted uppercase font-bold">Criptografia</span>
+                    <span className="text-[10px] text-md-primary font-mono">AES-256</span>
                   </div>
                   <button 
                     onClick={async () => {
@@ -2452,7 +2471,7 @@ except Exception as e:
                            addLog('error', 'Falha na auditoria de sistema', err.message);
                         }
                     }}
-                    className="w-full py-2 bg-[#9462E1]/10 hover:bg-[#9462E1]/20 border border-[#9462E1]/30 rounded-lg text-[11px] font-bold text-[#9462E1] transition-all"
+                    className="w-full py-2 bg-md-primary text-md-on-primary/10 hover:bg-md-primary text-md-on-primary/20 border border-[#9462E1]/30 rounded-xl text-[11px] font-bold text-md-primary transition-all"
                   >
                     EXECUTAR VARREDURA DE SISTEMA
                   </button>
@@ -2460,7 +2479,7 @@ except Exception as e:
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest pl-1">Documentação Rápida</h3>
+                <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest pl-1">Documentação Rápida</h3>
               <div className="space-y-2">
                 {[
                   "Ative o Plugin 'Remote Control API'",
@@ -2469,11 +2488,11 @@ except Exception as e:
                   "Configure LODs para performance",
                   "Mude iluminação em tempo real"
                 ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 bg-[#0A0A0B]/50 rounded-lg group hover:bg-[#0A0A0B] transition-colors">
-                    <div className="w-5 h-5 rounded bg-[#202024] flex items-center justify-center text-[10px] font-bold text-[#8D8D99] group-hover:text-[#9462E1]">
+                  <div key={i} className="flex items-center gap-3 p-3 bg-md-surface1/50 rounded-xl group hover:bg-md-surface1 transition-colors">
+                    <div className="w-5 h-5 rounded bg-[#202024] flex items-center justify-center text-[10px] font-bold text-md-text-muted group-hover:text-md-primary">
                       0{i+1}
                     </div>
-                    <span className="text-xs text-[#8D8D99] font-medium">{item}</span>
+                    <span className="text-xs text-md-text-muted font-medium">{item}</span>
                   </div>
                 ))}
               </div>
@@ -2481,8 +2500,8 @@ except Exception as e:
           </div>
         </div>
 
-        <div className="mt-6 pt-6 border-t border-[#202024]">
-            <button className="w-full py-3 text-red-500 text-xs font-bold flex items-center justify-center gap-2 hover:bg-red-500/5 rounded-lg transition-all">
+        <div className="mt-6 pt-6 border-t border-md-border">
+            <button className="w-full py-3 text-red-500 text-xs font-bold flex items-center justify-center gap-2 hover:bg-red-500/5 rounded-xl transition-all">
               <LogOut className="w-4 h-4" />
               Encerrar Sessão Architect
             </button>

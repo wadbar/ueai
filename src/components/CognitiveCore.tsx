@@ -28,7 +28,7 @@ export const CognitiveCore: React.FC<{
   const activeScrapers = stats ? stats.activeScrapers : 0;
 
   return (
-    <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-[#050505]">
+    <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-md-bg">
       <div className="max-w-6xl mx-auto space-y-12">
         <header className="space-y-4">
           <div className="flex items-center gap-3 text-purple-500 font-bold text-xs uppercase tracking-[0.4em]">
@@ -37,8 +37,8 @@ export const CognitiveCore: React.FC<{
           </div>
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div className="space-y-4">
-               <h2 className="text-5xl font-black text-white tracking-tighter uppercase italic">Status do Núcleo Arquitetural</h2>
-               <p className="text-[#8D8D99] max-w-2xl leading-relaxed">
+               <h2 className="text-5xl font-black text-md-text-strong tracking-tighter uppercase italic">Status do Núcleo Arquitetural</h2>
+               <p className="text-md-text-muted max-w-2xl leading-relaxed">
                   Monitoramento determinístico de inferência e acoplamento modular. 
                   O ecossistema está em sincronia total com os repositórios globais do arquiteto.
                </p>
@@ -50,28 +50,28 @@ export const CognitiveCore: React.FC<{
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
-                  className="bg-[#121214] border border-blue-500/20 p-6 rounded-3xl min-w-[300px] shadow-2xl shadow-blue-500/5 relative"
+                  className="bg-md-surface2 border border-blue-500/20 p-6 rounded-3xl min-w-[300px] shadow-2xl shadow-blue-500/5 relative"
                 >
                   <div className="flex items-center gap-3 mb-2">
-                    <Target className="w-4 h-4 text-blue-500 animate-pulse" />
-                    <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Ator Selecionado (Live)</span>
+                    <Target className="w-4 h-4 text-md-primary animate-pulse" />
+                    <span className="text-[10px] font-black text-md-primary uppercase tracking-widest">Ator Selecionado (Live)</span>
                   </div>
-                  <p className="text-sm font-black text-white uppercase truncate">{selectedActor.name}</p>
-                  <p className="text-[10px] text-[#4D4D57] font-mono mt-1 truncate">{selectedActor.path}</p>
+                  <p className="text-sm font-black text-md-text-strong uppercase truncate">{selectedActor.name}</p>
+                  <p className="text-[10px] text-md-text-muted font-mono mt-1 truncate">{selectedActor.path}</p>
                   
-                  <div className="absolute top-2 right-2 flex items-center gap-1.5 overflow-hidden">
-                      <div className="w-1 h-1 rounded-full bg-blue-500 animate-ping" />
+                  <div className="absolute top-2 right-2 flex items-center gap-2.5 overflow-hidden">
+                      <div className="w-1 h-1 rounded-full bg-md-primary text-md-on-primary animate-ping" />
                   </div>
 
                   {onApplyMaterial && materials && (
                     <div className="mt-4 pt-4 border-t border-white/5 space-y-2">
-                      <p className="text-[9px] font-bold text-[#4D4D57] uppercase tracking-widest mb-2">Ações Rápidas</p>
+                      <p className="text-[9px] font-bold text-md-text-muted uppercase tracking-widest mb-2">Ações Rápidas</p>
                       <button 
                         onClick={() => {
                           const concrete = materials.find(m => m.id === 'M_Industrial_Concrete');
                           if (concrete) onApplyMaterial('M_Industrial_Concrete', concrete);
                         }}
-                        className="w-full py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-400 rounded-xl text-[10px] font-black uppercase transition-all"
+                        className="w-full py-2 bg-md-primary text-md-on-primary/10 hover:bg-md-primary text-md-on-primary/20 border border-blue-500/30 text-md-primary rounded-2xl text-[10px] font-black uppercase transition-all"
                       >
                         Aplicar M_Industrial_Concrete
                       </button>
@@ -87,7 +87,7 @@ export const CognitiveCore: React.FC<{
           {[
             { label: 'JS Heap Memory', value: memoryUsage, icon: Zap, color: 'text-amber-500' },
             { label: 'Uptime do Motor', value: uptime, icon: Shield, color: 'text-emerald-500' },
-            { label: 'Scraper Workers', value: activeScrapers, icon: Binary, color: 'text-blue-500' },
+            { label: 'Scraper Workers', value: activeScrapers, icon: Binary, color: 'text-md-primary' },
             { 
               label: 'Engine Cognitiva', 
               value: aiHealth?.status === 'online' ? 'DETERMINISTA' : 
@@ -96,27 +96,27 @@ export const CognitiveCore: React.FC<{
               icon: Globe, 
               color: aiHealth?.status === 'online' ? 'text-purple-500' :
                      aiHealth?.status === 'degraded' ? 'text-rose-500' :
-                     aiHealth?.status === 'limited' ? 'text-amber-500' : 'text-[#4D4D57]' 
+                     aiHealth?.status === 'limited' ? 'text-amber-500' : 'text-md-text-muted' 
             },
           ].map((stat, i) => (
-            <div key={i} className="bg-[#121214] border border-[#29292E] p-8 rounded-[32px] space-y-4 hover:border-white/10 transition-colors shadow-2xl">
+            <div key={i} className="bg-md-surface2 border border-md-border p-8 rounded-[32px] space-y-4 hover:border-white/10 transition-colors shadow-2xl">
               <div className="flex items-center justify-between">
                 <stat.icon className={`w-8 h-8 ${stat.color}`} />
-                <span className="text-[10px] font-black text-[#4D4D57] uppercase tracking-widest">{stat.label}</span>
+                <span className="text-[10px] font-black text-md-text-muted uppercase tracking-widest">{stat.label}</span>
               </div>
-              <p className="text-3xl font-black text-white tracking-tighter uppercase truncate">{stat.value}</p>
+              <p className="text-3xl font-black text-md-text-strong tracking-tighter uppercase truncate">{stat.value}</p>
             </div>
           ))}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 bg-[#0A0A0B] border border-[#29292E] rounded-[40px] p-10 space-y-8 shadow-inner">
-            <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-3">
+          <div className="lg:col-span-2 bg-md-surface1 border border-md-border rounded-[40px] p-10 space-y-8 shadow-inner">
+            <h3 className="text-sm font-black text-md-text-strong uppercase tracking-widest flex items-center gap-3">
               <Activity className="w-4 h-4 text-purple-500" />
               Sinal de Carga de CPU (Workers)
             </h3>
             
-            <div className="h-64 flex items-end gap-1 px-4">
+            <div className="h-64 flex items-end gap-2 px-4">
               {synapses.map((h, i) => (
                 <motion.div 
                   key={i}
@@ -128,40 +128,40 @@ export const CognitiveCore: React.FC<{
               ))}
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-6 border-t border-[#202024]">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-6 border-t border-md-border">
                <div className="space-y-1">
-                  <span className="text-[9px] font-bold text-[#4D4D57] uppercase">Estado Global</span>
-                  <p className="text-xs font-black text-white uppercase">Operacional</p>
+                  <span className="text-[9px] font-bold text-md-text-muted uppercase">Estado Global</span>
+                  <p className="text-xs font-black text-md-text-strong uppercase">Operacional</p>
                </div>
                <div className="space-y-1">
-                  <span className="text-[9px] font-bold text-[#4D4D57] uppercase">Delta de Carga</span>
-                  <p className="text-xs font-black text-white uppercase">{stats ? (stats.cpu.user / 1000000).toFixed(2) : '0.00'}</p>
+                  <span className="text-[9px] font-bold text-md-text-muted uppercase">Delta de Carga</span>
+                  <p className="text-xs font-black text-md-text-strong uppercase">{stats ? (stats.cpu.user / 1000000).toFixed(2) : '0.00'}</p>
                </div>
                <div className="space-y-1">
-                  <span className="text-[9px] font-bold text-[#4D4D57] uppercase">Ciclo GC</span>
-                  <p className="text-xs font-black text-white uppercase">Limpo</p>
+                  <span className="text-[9px] font-bold text-md-text-muted uppercase">Ciclo GC</span>
+                  <p className="text-xs font-black text-md-text-strong uppercase">Limpo</p>
                </div>
                <div className="space-y-1">
-                  <span className="text-[9px] font-bold text-[#4D4D57] uppercase">Safety Lock</span>
+                  <span className="text-[9px] font-bold text-md-text-muted uppercase">Safety Lock</span>
                   <p className="text-xs font-black text-emerald-500 uppercase">Compromissado</p>
                </div>
             </div>
           </div>
 
           <div className="space-y-8">
-             <div className="bg-[#121214] border border-[#29292E] rounded-[32px] p-8 space-y-6">
-                <div className="flex items-center gap-3 border-b border-[#29292E] pb-4">
-                   <Layers className="w-5 h-5 text-blue-500" />
-                   <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">Memória de Processos</h3>
+             <div className="bg-md-surface2 border border-md-border rounded-[32px] p-8 space-y-6">
+                <div className="flex items-center gap-3 border-b border-md-border pb-4">
+                   <Layers className="w-5 h-5 text-md-primary" />
+                   <h3 className="text-xs font-black text-md-text-strong uppercase tracking-[0.2em]">Memória de Processos</h3>
                 </div>
                 <div className="space-y-4">
                    <div className="p-4 bg-black/40 border border-white/5 rounded-2xl flex items-center justify-between">
-                      <span className="text-[10px] font-black text-[#4D4D57] uppercase">Heap Total (MB)</span>
-                      <span className="text-white font-black text-xs">{stats ? (stats.memory.heapTotal / 1024 / 1024).toFixed(0) : '0'}</span>
+                      <span className="text-[10px] font-black text-md-text-muted uppercase">Heap Total (MB)</span>
+                      <span className="text-md-text-strong font-black text-xs">{stats ? (stats.memory.heapTotal / 1024 / 1024).toFixed(0) : '0'}</span>
                    </div>
                    <div className="p-4 bg-black/40 border border-white/5 rounded-2xl flex items-center justify-between">
-                      <span className="text-[10px] font-black text-[#4D4D57] uppercase">RSS (MB)</span>
-                      <span className="text-blue-500 font-black text-xs">{stats ? (stats.memory.rss / 1024 / 1024).toFixed(0) : '0'}</span>
+                      <span className="text-[10px] font-black text-md-text-muted uppercase">RSS (MB)</span>
+                      <span className="text-md-primary font-black text-xs">{stats ? (stats.memory.rss / 1024 / 1024).toFixed(0) : '0'}</span>
                    </div>
                 </div>
              </div>
