@@ -87,6 +87,13 @@ async function startServer() {
     });
   }, 2000);
 
+  const getModelForEnvironment = () => {
+    // No AI Studio de desenvolvimento, usamos todo o poder do modelo integrado (Gemini 3.1 Pro).
+    // Em produção/compartilhado, fazemos fallback para o Flash para economizar recursos e garantir latência,
+    // sem quebrar o acesso.
+    return process.env.NODE_ENV !== "production" ? "gemini-3.1-pro-preview" : "gemini-3-flash-preview";
+  };
+
   // [SYSTEM_HEALTH]: Verificação de integridade da IA com Autocura
   app.get("/api/health/ai", async (req, res) => {
     try {
@@ -97,14 +104,14 @@ async function startServer() {
       };
 
       await withAIRetry(() => ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: getModelForEnvironment(),
         contents: "ping"
       }));
 
       res.json({ 
         status: "online", 
         stats,
-        engine: "Architect Core (Gemini 3 Flash)"
+        engine: `Architect Core (${getModelForEnvironment()})`
       });
     } catch (error: any) {
       const statusCode = error?.status || error?.code || 500;
@@ -159,7 +166,7 @@ async function startServer() {
       `;
 
       const response = await withAIRetry(() => ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: getModelForEnvironment(),
         contents: promptContext,
         config: {
           responseMimeType: "application/json",

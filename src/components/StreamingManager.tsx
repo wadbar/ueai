@@ -109,7 +109,10 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
         let newStatus: 'LOADED' | 'UNLOADED' | 'LOD_ONLY' = asset.status;
         
         // Culling logic combining Distance & Frustum
-        if (dist > asset.loadRadius * 1.5) {
+        if (asset.isManual) {
+          // Manually managed assets retain their status and ignore Culling overrides.
+          newStatus = asset.status;
+        } else if (dist > asset.loadRadius * 1.5) {
           newStatus = 'UNLOADED';
         } else if (useFrustumCulling && !isInFrustum && dist > asset.loadRadius * 0.5) {
           // Unload if not culled by view, but outside the safe inner bubble
@@ -274,7 +277,7 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
                               onClick={() => {
                                 const newStatus = asset.status === 'LOADED' ? 'UNLOADED' : 'LOADED';
                                 sendUECommand({ ...asset }, newStatus === 'LOADED');
-                                setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, status: newStatus, isManual: true } : a));
+                                setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, status: newStatus, isManual: true, loadRadius: 7500 } : a));
                               }}
                               className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
                                 asset.status === 'LOADED' 
@@ -286,7 +289,7 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
                             </button>
                             <button 
                               onClick={() => {
-                                setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, isManual: !a.isManual } : a));
+                                setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, isManual: !a.isManual, loadRadius: !a.isManual ? 7500 : a.loadRadius } : a));
                               }}
                               className={`p-1.5 rounded-lg transition-all ${
                                 asset.isManual ? "text-amber-500 bg-amber-500/10" : "text-[#4D4D57] hover:bg-white/5"
@@ -315,7 +318,7 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
                               onClick={() => {
                                 const newStatus = asset.status === 'LOADED' ? 'UNLOADED' : 'LOADED';
                                 sendUECommand({ ...asset }, newStatus === 'LOADED');
-                                setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, status: newStatus, isManual: true } : a));
+                                setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, status: newStatus, isManual: true, loadRadius: 7500 } : a));
                               }}
                               className="p-2 hover:bg-white/5 rounded-xl text-[#4D4D57] hover:text-white transition-colors"
                               title={asset.status === 'LOADED' ? "Forçar Descarregamento" : "Forçar Carregamento"}

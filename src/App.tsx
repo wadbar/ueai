@@ -346,19 +346,13 @@ print("ASSET_DATA_START" + json.dumps(data) + "ASSET_DATA_END")
         addLog('ai', 'Executando automação solicitada: Material, LODs e Câmera Orbital...');
         
         // 1. Aplicar Material M_Industrial_Concrete
-        const concrete = materials.find(m => m.id === 'M_Industrial_Concrete');
-        if (concrete) {
-          await handleApplyMaterial('M_Industrial_Concrete', concrete);
-        } else {
-          // Tenta aplicar default properties
-          await handleApplyMaterial('M_Industrial_Concrete', { baseColor: '#aaaaaa', metallic: 0.5, roughness: 0.5, emissive: '#000000', textures: {} });
-        }
+        await applyConcreteToSelected();
         
-        // 2. Aplicar 3 LODs (25, 50, 75 tris) usando a config já setada default
+        // 2. Aplicar 3 LODs usando a config já setada default
         await handleApplyLODs(selectedActorMeshPath, [
-          { level: 0, tris: '25', distance: 1.0, status: 'GENERATED' },
+          { level: 0, tris: '75', distance: 1.0, status: 'GENERATED' },
           { level: 1, tris: '50', distance: 0.5, status: 'GENERATED' },
-          { level: 2, tris: '75', distance: 0.1, status: 'GENERATED' }
+          { level: 2, tris: '25', distance: 0.1, status: 'GENERATED' }
         ]);
 
         // 3. O orbit config targetActor deve ser configurado
@@ -715,6 +709,16 @@ print("MESH_DIAG_START" + json.dumps(data) + "MESH_DIAG_END")
   const lastUpdateRef = useRef<number>(0);
 
 
+  const applyConcreteToSelected = async () => {
+    const concreteInstance = materials.find((m) => m.id === 'M_Industrial_Concrete');
+    if (concreteInstance) {
+        addLog('ai', "Found 'M_Industrial_Concrete' material instance. Applying to selected actor's static mesh component...");
+        await handleApplyMaterial('M_Industrial_Concrete', concreteInstance);
+    } else {
+        addLog('error', "M_Industrial_Concrete material instance not found.");
+    }
+  };
+
   const handleApplyMaterial = async (materialId: string, props: any) => {
     try {
       const commands: UECommand[] = [
@@ -913,9 +917,9 @@ print("MESH_DIAG_START" + json.dumps(data) + "MESH_DIAG_END")
   };
 
   const [currentLODConfig, setCurrentLODConfig] = useState<LODLevel[]>([
-    { level: 0, tris: '25', distance: 1.0, status: 'GENERATED' },
+    { level: 0, tris: '75', distance: 1.0, status: 'GENERATED' },
     { level: 1, tris: '50', distance: 0.5, status: 'GENERATED' },
-    { level: 2, tris: '75', distance: 0.1, status: 'GENERATED' }
+    { level: 2, tris: '25', distance: 0.1, status: 'GENERATED' }
   ]);
 
   const handleApplyLODs = async (meshPath: string, configs: LODLevel[]) => {
@@ -2364,7 +2368,7 @@ except Exception as e:
                 <h3 className="text-xs font-bold text-[#4D4D57] uppercase tracking-widest pl-1">Materiais PBR</h3>
                 <div className="grid grid-cols-1 gap-2">
                   <button 
-                    onClick={() => handleApplyMaterial('M_Industrial_Concrete', materials.find(m => m.id === 'M_Industrial_Concrete'))}
+                    onClick={applyConcreteToSelected}
                     className="text-left p-3 bg-amber-500/10 rounded-lg hover:bg-amber-500/20 border border-amber-500/30 transition-all group"
                   >
                     <p className="text-[10px] font-bold text-amber-500 mb-1">INDUSTRIAL CONCRETE</p>
