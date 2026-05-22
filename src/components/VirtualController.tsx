@@ -114,7 +114,7 @@ export const VirtualController: React.FC<VirtualControllerProps> = ({ onUpdate, 
     <div className="p-6 bg-md-surface1 border border-white/5 rounded-2xl space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-md-primary text-md-on-primary/10 rounded-xl">
+          <div className="p-2 bg-md-primary text-md-on-primary rounded-xl">
             <Move className="w-5 h-5 text-md-primary" />
           </div>
           <div>
@@ -126,7 +126,7 @@ export const VirtualController: React.FC<VirtualControllerProps> = ({ onUpdate, 
           "px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-2",
           state.isControlling ? "bg-emerald-500/10 text-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)]" : "bg-white/5 text-md-text-muted"
         )}>
-          <div className={cn("w-1.5 h-1.5 rounded-full", state.isControlling ? "bg-emerald-500 animate-pulse" : "bg-[#4D4D57]")} />
+          <div className={cn("w-1.5 h-1.5 rounded-full", state.isControlling ? "bg-emerald-500 animate-pulse" : "bg-md-text-muted")} />
           {state.isControlling ? 'Master Control Active' : 'Idle'}
         </div>
       </div>
@@ -155,7 +155,7 @@ export const VirtualController: React.FC<VirtualControllerProps> = ({ onUpdate, 
                 max="100" 
                 value={state.speed} 
                 onChange={(e) => setState(prev => ({ ...prev, speed: parseFloat(e.target.value) }))}
-                className="w-full h-1 bg-[#29292E] rounded-xl appearance-none cursor-pointer accent-blue-500"
+                className="w-full h-1 bg-md-surface3 rounded-xl appearance-none cursor-pointer accent-blue-500"
              />
           </div>
         </div>
@@ -192,7 +192,7 @@ export const VirtualController: React.FC<VirtualControllerProps> = ({ onUpdate, 
                 step="0.1"
                 value={fov} 
                 onChange={(e) => handleFOVChange(parseFloat(e.target.value))}
-                className="w-full h-1 bg-[#29292E] rounded-xl appearance-none cursor-pointer accent-cyan-500"
+                className="w-full h-1 bg-md-surface3 rounded-xl appearance-none cursor-pointer accent-cyan-500"
              />
           </div>
         </div>
@@ -213,7 +213,7 @@ export const VirtualController: React.FC<VirtualControllerProps> = ({ onUpdate, 
             className={cn(
               "w-full py-4 rounded-2xl text-xs font-black uppercase transition-all flex items-center justify-center gap-3",
               !activeActor ? "bg-white/5 text-md-text-muted cursor-not-allowed" :
-              state.isControlling ? "bg-rose-500 text-md-text-strong shadow-lg shadow-rose-500/20" : "bg-md-primary text-md-on-primary text-md-text-strong hover:opacity-90"
+              state.isControlling ? "bg-rose-500 text-md-text-strong shadow-lg shadow-rose-500/20" : "bg-md-primary text-md-on-primary hover:opacity-90"
             )}
           >
             {state.isControlling ? (

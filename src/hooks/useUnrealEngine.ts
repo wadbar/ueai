@@ -117,24 +117,44 @@ unreal.AutomationLibrary.take_high_res_screenshot(${w}, ${h}, "UE_Architect_Capt
     }
   }, [connection, addLog]);
 
-  const updateRealtimeActor = useCallback(async (path: string, pos: { x: number, y: number, z: number }, rot: { r: number, p: number, y: number }) => {
-    const now = Date.now();
-    if (now - lastUpdateRef.current < 33) return; // ~30 FPS throttle
-    lastUpdateRef.current = now;
+  const batchQueueRef = useRef<Map<string, { pos: any, rot: any }>>(new Map());
+  const batchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    try {
-      await axios.put(`${connection.url}:${connection.port}/remote/object/call`, {
-        objectPath: path,
-        functionName: 'SetActorLocationAndRotation',
-        parameters: {
-          NewLocation: pos,
-          NewRotation: rot,
-          bSweep: false,
-          bTeleport: true
+  const updateRealtimeActor = useCallback(async (path: string, pos: { x: number, y: number, z: number }, rot: { r: number, p: number, y: number }) => {
+    batchQueueRef.current.set(path, { pos, rot });
+
+    if (!batchTimeoutRef.current) {
+      batchTimeoutRef.current = setTimeout(async () => {
+        const entries = Array.from(batchQueueRef.current.entries());
+        batchQueueRef.current.clear();
+        batchTimeoutRef.current = null;
+
+        if (entries.length === 0) return;
+
+        try {
+          const requests = entries.map(([actorPath, data], index) => ({
+            RequestId: index + 1,
+            URL: '/remote/object/call',
+            Verb: 'PUT',
+            Body: {
+              objectPath: actorPath,
+              functionName: 'SetActorLocationAndRotation',
+              parameters: {
+                NewLocation: data.pos,
+                NewRotation: data.rot,
+                bSweep: false,
+                bTeleport: true
+              }
+            }
+          }));
+
+          await axios.put(`${connection.url}:${connection.port}/remote/batch`, {
+            Requests: requests
+          });
+        } catch (err) {
+          // High-frequency silence
         }
-      });
-    } catch (err) {
-      // High-frequency silence
+      }, 33); // ~30 FPS throttle
     }
   }, [connection]);
 

@@ -230,7 +230,7 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
                          onClick={() => setOrbitConfig(prev => ({ ...prev, autoUpdate: !prev.autoUpdate }))}
                          className={cn(
                            "w-10 h-5 rounded-full relative transition-all",
-                           orbitConfig.autoUpdate ? "bg-emerald-500" : "bg-[#202024]"
+                           orbitConfig.autoUpdate ? "bg-emerald-500" : "bg-md-surface2"
                          )}
                        >
                           <div className={cn(
@@ -251,7 +251,7 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
                          type="range" min="50" max="10000" step="10"
                          value={orbitConfig.distance}
                          onChange={(e) => setOrbitConfig(prev => ({ ...prev, distance: parseInt(e.target.value) }))}
-                         className="w-full h-1 bg-[#202024] rounded-full appearance-none accent-indigo-500 outline-none"
+                         className="w-full h-1 bg-md-surface2 rounded-full appearance-none accent-indigo-500 outline-none"
                        />
                     </div>
 
@@ -264,7 +264,7 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
                          type="range" min="-89" max="89" step="1"
                          value={orbitConfig.pitch}
                          onChange={(e) => setOrbitConfig(prev => ({ ...prev, pitch: parseInt(e.target.value) }))}
-                         className="w-full h-1 bg-[#202024] rounded-full appearance-none accent-indigo-500 outline-none"
+                         className="w-full h-1 bg-md-surface2 rounded-full appearance-none accent-indigo-500 outline-none"
                        />
                     </div>
 
@@ -277,7 +277,7 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
                          type="range" min="-180" max="180" step="1"
                          value={orbitConfig.yaw}
                          onChange={(e) => setOrbitConfig(prev => ({ ...prev, yaw: parseInt(e.target.value) }))}
-                         className="w-full h-1 bg-[#202024] rounded-full appearance-none accent-indigo-500 outline-none"
+                         className="w-full h-1 bg-md-surface2 rounded-full appearance-none accent-indigo-500 outline-none"
                        />
                     </div>
                  </div>
@@ -294,7 +294,7 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
                     <button 
                       id="sync-focus-btn"
                       onClick={syncSelectedAsTarget}
-                      className="flex items-center justify-center gap-2 bg-[#202024] hover:bg-[#29292E] text-md-text-strong font-bold py-4 rounded-2xl transition-all border border-white/5 uppercase text-[10px]"
+                      className="flex items-center justify-center gap-2 bg-md-surface2 hover:bg-md-surface3 text-md-text-strong font-bold py-4 rounded-2xl transition-all border border-white/5 uppercase text-[10px]"
                     >
                       <Target className="w-4 h-4" />
                       Lock Focus
@@ -327,7 +327,7 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
                       onClick={scanCameras}
                       disabled={scanning}
                       className={cn(
-                        "p-2 hover:bg-[#202024] rounded-xl transition-colors text-md-text-muted hover:text-indigo-400",
+                        "p-2 hover:bg-md-surface2 rounded-xl transition-colors text-md-text-muted hover:text-indigo-400",
                         scanning && "animate-spin"
                       )}
                     >

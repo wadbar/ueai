@@ -82,7 +82,7 @@ export const SceneInspector: React.FC<SceneInspectorProps> = ({ onRefresh, actor
                   selectedActorId === actor.id ? "bg-md-surface2 border-l-2 border-l-purple-500" : "hover:bg-white/5 border-l-2 border-l-transparent"
                 }`}
               >
-                <div className="p-2 rounded bg-[#1A1A1E] text-purple-500">
+                <div className="p-2 rounded bg-md-surface1 text-md-primary">
                   <Box className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -145,7 +145,7 @@ export const SceneInspector: React.FC<SceneInspectorProps> = ({ onRefresh, actor
                       step="0.1"
                       value={currentFOV}
                       onChange={(e) => handleFOVChange(parseFloat(e.target.value))}
-                      className="w-full h-1 bg-[#29292E] rounded-xl appearance-none cursor-pointer accent-cyan-500"
+                      className="w-full h-1 bg-md-surface3 rounded-xl appearance-none cursor-pointer accent-cyan-500"
                     />
                     <div className="flex justify-between text-[8px] text-md-text-muted font-bold uppercase">
                       <span>Wide</span>
@@ -185,7 +185,7 @@ export const SceneInspector: React.FC<SceneInspectorProps> = ({ onRefresh, actor
                   <div key={comp.id} className="border border-md-border rounded-2xl overflow-hidden">
                     <button 
                       onClick={() => toggleComponent(comp.id)}
-                      className="w-full p-4 bg-md-surface2 flex items-center gap-2 text-left hover:bg-[#1A1A1E] transition-colors"
+                      className="w-full p-4 bg-md-surface2 flex items-center gap-2 text-left hover:bg-md-surface3 transition-colors"
                     >
                       {expandedComponents.has(comp.id) ? <ChevronDown className="w-3 h-3 text-md-text-muted" /> : <ChevronRight className="w-3 h-3 text-md-text-muted" />}
                       <span className="text-xs font-bold text-md-text-strong font-mono">{comp.type}</span>

@@ -7,7 +7,8 @@ import {
   Terminal as TerminalIcon,
   Zap,
   Shield,
-  FileCode
+  FileCode,
+  Cpu
 } from 'lucide-react';
 import { MeshDiagnostics } from '../types';
 import { cn } from '../lib/utils';
@@ -80,7 +81,7 @@ export const GeometryLab: React.FC<GeometryLabProps> = ({ activeActor, diagnosti
                 
                 <div className="flex items-center justify-between mb-8">
                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-md-primary text-md-on-primary/10 rounded-2xl">
+                      <div className="p-2 bg-md-primary text-md-on-primary rounded-2xl">
                          <Layers className="w-5 h-5 text-md-primary" />
                       </div>
                       <h3 className="text-sm font-black text-md-text-strong uppercase">Geometric Analysis</h3>
@@ -88,7 +89,7 @@ export const GeometryLab: React.FC<GeometryLabProps> = ({ activeActor, diagnosti
                    <button 
                      onClick={runMeshOptimization}
                      disabled={!activeActor || pipelineStatus !== 'IDLE'}
-                     className="flex items-center gap-2 px-3 py-1.5 bg-md-primary text-md-on-primary/10 hover:bg-md-primary text-md-on-primary/20 text-md-primary border border-blue-500/20 rounded-xl text-[10px] font-black uppercase transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                     className="flex items-center gap-2 px-3 py-1.5 bg-md-primary text-md-on-primary hover:bg-md-primary-hover hover:text-md-on-primary border border-blue-500/20 rounded-xl text-[10px] font-black uppercase transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                    >
                      <RefreshCw className={cn("w-3 h-3", pipelineStatus !== 'IDLE' && "animate-spin")} />
                      Re-Sync Mesh Analytics

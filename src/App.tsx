@@ -56,6 +56,7 @@ import { CinematicsManager } from './components/CinematicsManager';
 import { VirtualController } from './components/VirtualController';
 import { GeometryLab } from './components/GeometryLab';
 import { WorldSettings } from './components/WorldSettings';
+import { PerformanceHUD } from './components/PerformanceHUD';
 import { useUnrealEngine } from './hooks/useUnrealEngine';
 import { useSceneInspector } from './hooks/useSceneInspector';
 import { io } from 'socket.io-client';
@@ -344,6 +345,16 @@ print("ASSET_DATA_START" + json.dumps(data) + "ASSET_DATA_END")
   }
 
   const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
+  const [uePerformanceStats, setUePerformanceStats] = useState<{ 
+    drawCalls: number, 
+    triangles: number,
+    cameraMetadata?: {
+      name: string;
+      rotation: { pitch: number; yaw: number; roll: number };
+      fov?: number;
+      isCamera: boolean;
+    } | null 
+  } | null>(null);
   const [selectedActorData, setSelectedActorData] = useState<any>(null);
   const [selectedActorMeshPath, setSelectedActorMeshPath] = useState<string | null>(null);
 
@@ -572,6 +583,65 @@ print("MESH_DIAG_START" + json.dumps(data) + "MESH_DIAG_END")
     const interval = setInterval(pollSelection, 2000);
     return () => clearInterval(interval);
   }, [connection.connected, connection.url, connection.port, selectedActorData?.path]);
+
+  // [PERFORMANCE_POLLING]: Polling de performance (Draw Calls e Triangles via Python Engine Hooks)
+  useEffect(() => {
+    if (!connection.connected) return;
+    const pollUEPerformance = async () => {
+      const script = `
+import unreal
+import json
+try:
+    actors = unreal.EditorLevelLibrary.get_all_level_actors()
+    total_tris = 0
+    draw_calls = 0
+    for a in actors:
+        if isinstance(a, unreal.StaticMeshActor):
+            comp = a.static_mesh_component
+            if comp and comp.static_mesh:
+                lods = comp.static_mesh.get_num_lods()
+                if lods > 0:
+                   total_tris += comp.static_mesh.get_num_triangles(0)
+                   draw_calls += comp.get_num_materials()
+                   
+    camera_metadata = None
+    selected_actors = unreal.EditorLevelLibrary.get_selected_level_actors()
+    if selected_actors:
+        actor = selected_actors[0]
+        rot = actor.get_actor_rotation()
+        meta = { "name": actor.get_actor_label(), "rotation": {"pitch": rot.pitch, "yaw": rot.yaw, "roll": rot.roll} }
+        
+        has_camera = False
+        for comp in actor.get_components_by_class(unreal.CameraComponent):
+            meta["fov"] = getattr(comp, "field_of_view", 90)
+            has_camera = True
+            break
+        if not has_camera:
+           for comp in actor.get_components_by_class(unreal.CineCameraComponent):
+               meta["fov"] = getattr(comp, "current_focal_length", 35) # approximate
+               has_camera = True
+               break
+               
+        meta["isCamera"] = has_camera
+        camera_metadata = meta
+
+    print("UE_PERF_START" + json.dumps({"drawCalls": draw_calls, "triangles": total_tris, "cameraMetadata": camera_metadata}) + "UE_PERF_END")
+except Exception as e:
+    pass
+      `;
+      try {
+        const res = await axios.post(`${connection.url}:${connection.port}/remote/script/execute`, { script }, { timeout: 2000 });
+        const output = res.data?.output || "";
+        const match = output.match(/UE_PERF_START(.*)UE_PERF_END/);
+        if (match) {
+          setUePerformanceStats(JSON.parse(match[1]));
+        }
+      } catch (e) {}
+    };
+
+    const interval = setInterval(pollUEPerformance, 4000);
+    return () => clearInterval(interval);
+  }, [connection.connected, connection.url, connection.port]);
 
   const [commandHistory, setCommandHistory] = useState<SavedCommand[]>(() => {
     const saved = localStorage.getItem('ue_command_history_v2');
@@ -1140,7 +1210,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                   className={cn(
                     "p-3 rounded-xl border flex gap-3",
                     log.type === 'ai' ? "bg-md-surface2 border-md-border" : 
-                    log.type === 'ue' ? "bg-[#1E293B]/20 border-blue-500/20" :
+                    log.type === 'ue' ? "bg-blue-500/10 border-blue-500/20" :
                     "bg-red-500/5 border-red-500/20"
                   )}
                 >
@@ -1171,7 +1241,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
             </AnimatePresence>
             {logs.length === 0 && (
               <div className="h-full flex flex-col items-center justify-center text-center space-y-6 opacity-40">
-                <div className="w-20 h-20 bg-[#202024] rounded-full flex items-center justify-center">
+                <div className="w-20 h-20 bg-md-surface2 rounded-full flex items-center justify-center">
                   <Terminal className="w-8 h-8" />
                 </div>
                 <div className="space-y-1">
@@ -1201,7 +1271,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
             <div className="p-4 bg-md-surface2 border-b border-md-border flex justify-end">
               <button 
                 onClick={auditSystem}
-                className="flex items-center gap-2 px-4 py-2 bg-md-primary text-md-on-primary/10 text-md-primary border border-blue-500/20 rounded-xl font-bold text-[11px] hover:bg-md-primary text-md-on-primary hover:text-md-text-strong transition-all shadow-lg shadow-blue-500/10"
+                className="flex items-center gap-2 px-4 py-2 bg-md-primary text-md-on-primary border border-blue-500/20 rounded-xl font-bold text-[11px] hover:bg-md-primary-hover hover:text-md-on-primary hover:text-md-text-strong transition-all shadow-lg shadow-blue-500/10"
               >
                 <Shield className="w-4 h-4" />
                 EXECUTAR AUDITORIA PREVENTIVA
@@ -1249,7 +1319,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                                 textures: mat.textures || { BaseColorTexture: '', NormalMap: '', MetallicMap: '', RoughnessMap: '', SpecularMap: '' }
                             });
                           }}
-                          className={`w-full text-left p-4 bg-md-surface2 border rounded-2xl hover:border-[#9462E1] transition-all group ${selectedMaterialId === mat.id ? 'border-[#9462E1] bg-md-surface2/80' : 'border-md-border'}`}
+                          className={`w-full text-left p-4 bg-md-surface2 border rounded-2xl hover:border-md-primary transition-all group ${selectedMaterialId === mat.id ? 'border-md-primary bg-md-surface2/80' : 'border-md-border'}`}
                         >
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded shadow-inner" style={{ backgroundColor: mat.baseColor }} />
@@ -1270,7 +1340,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                         </button>
                       </div>
                       ))}
-                      <button className="w-full py-3 border-2 border-dashed border-md-border rounded-2xl text-[11px] font-bold text-md-text-muted hover:border-[#9462E1] hover:text-md-primary transition-all">
+                      <button className="w-full py-3 border-2 border-dashed border-md-border rounded-2xl text-[11px] font-bold text-md-text-muted hover:border-md-primary hover:text-md-primary transition-all">
                         + NOVO MATERIAL
                       </button>
                     </div>
@@ -1436,9 +1506,9 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                                         </button>
                                     </div>
                                     <div className="relative group">
-                                        <div className="h-40 bg-md-surface2 border border-md-border rounded-2xl flex flex-col items-center justify-center gap-2 group-hover:border-[#9462E1] transition-all overflow-hidden">
+                                        <div className="h-40 bg-md-surface2 border border-md-border rounded-2xl flex flex-col items-center justify-center gap-2 group-hover:border-md-primary transition-all overflow-hidden">
                                             {pathValue ? (
-                                                <div className="w-full h-full bg-[#1e1e21] flex items-center justify-center italic text-[10px] text-[#4d4d57]">
+                                                <div className="w-full h-full bg-md-surface3 flex items-center justify-center italic text-[10px] text-md-text-muted">
                                                     {pathValue}
                                                 </div>
                                             ) : (
@@ -1457,7 +1527,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                                                     textures: { ...prev.textures, [type]: pathResult } 
                                                 }));
                                               }}
-                                              className="p-2 bg-md-primary text-md-on-primary rounded-xl text-md-text-strong hover:bg-[#A87FF3] transition-colors"
+                                              className="p-2 bg-md-primary text-md-on-primary rounded-xl text-md-text-strong hover:bg-md-primary-hover transition-colors"
                                             >
                                                 <Upload className="w-4 h-4" />
                                             </button>
@@ -1478,7 +1548,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                                     <input 
                                         type="text" 
                                         placeholder="/Game/Textures/..."
-                                        className="w-full bg-md-surface2 border border-md-border p-2 rounded text-[10px] text-md-text-muted font-mono focus:border-[#9462E1] outline-none"
+                                        className="w-full bg-md-surface2 border border-md-border p-2 rounded text-[10px] text-md-text-muted font-mono focus:border-md-primary outline-none"
                                         value={pathValue}
                                         onChange={(e) => setEditingProps(prev => ({ 
                                             ...prev, 
@@ -1690,7 +1760,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                       min="0.01" max="4" step="0.01"
                       value={globalTimeDilation}
                       onChange={(e) => handleGlobalTimeDilation(parseFloat(e.target.value))}
-                      className="w-full h-2 bg-[#202024] rounded-full appearance-none accent-amber-500 outline-none"
+                      className="w-full h-2 bg-md-surface2 rounded-full appearance-none accent-amber-500 outline-none"
                     />
                     <div className="flex justify-between text-[10px] font-bold text-md-text-muted uppercase tracking-widest">
                        <button onClick={() => handleGlobalTimeDilation(0.1)} className="hover:text-md-text-strong transition-colors">Slow Mo (0.1x)</button>
@@ -1718,7 +1788,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                             onClick={() => handleAnimationControl(mesh.id, 'loop', !mesh.loop)}
                             className={cn(
                               "flex items-center gap-2.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase transition-all border",
-                              mesh.loop ? "bg-md-primary text-md-on-primary/10 text-md-primary border-blue-500/20" : "bg-white/5 text-md-text-muted border-white/10"
+                              mesh.loop ? "bg-md-primary text-md-on-primary border-md-primary border" : "bg-white/5 text-md-text-muted border-white/10"
                             )}
                           >
                             <Repeat className={cn("w-3 h-3", mesh.loop && "animate-spin-slow")} />
@@ -1939,7 +2009,7 @@ except Exception as e:
   };
 
   return (
-    <div className="min-h-screen bg-md-surface1 text-md-text font-sans selection:bg-md-primary text-md-on-primary/30">
+    <div className="min-h-screen bg-md-surface1 text-md-text font-sans selection:bg-md-primary text-md-on-primary">
       {/* Code Viewer Modal */}
       <AnimatePresence>
         {viewingCode && currentAIResponse && (
@@ -1962,7 +2032,7 @@ except Exception as e:
                 </div>
                 <button 
                   onClick={() => setViewingCode(false)}
-                  className="p-2 hover:bg-[#202024] rounded-xl transition-colors"
+                  className="p-2 hover:bg-md-surface2 rounded-xl transition-colors"
                 >
                   <AlertCircle className="w-5 h-5 rotate-45" />
                 </button>
@@ -2002,7 +2072,7 @@ except Exception as e:
               <div className="p-6 border-t border-md-border flex justify-end">
                 <button 
                   onClick={() => setViewingCode(false)}
-                  className="bg-[#29292E] hover:bg-[#323238] text-md-text-strong px-6 py-2 rounded-xl font-bold transition-all"
+                  className="bg-md-surface3 hover:bg-md-border text-md-text-strong px-6 py-2 rounded-xl font-bold transition-all"
                 >
                   Fechar
                 </button>
@@ -2028,7 +2098,7 @@ except Exception as e:
               <p className="text-xs text-md-text-muted font-medium">
                 {connection.connected ? `Runtime_V12: ${connection.port}` : "Link Offline"}
               </p>
-              <div className="w-px h-3 bg-[#323238] mx-1" />
+              <div className="w-px h-3 bg-md-border mx-1" />
               <div className="flex items-center gap-2.5 overflow-hidden">
                  <span className={cn(
                    "text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-tighter",
@@ -2055,7 +2125,7 @@ except Exception as e:
             {isDarkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-slate-800" />}
           </button>
           
-          <div className="bg-[#202024] p-2 rounded-xl flex items-center gap-2">
+          <div className="bg-md-surface2 p-2 rounded-xl flex items-center gap-2">
             <button 
               onClick={() => setActiveTab('cognitive')}
               className={cn(
@@ -2078,7 +2148,7 @@ except Exception as e:
               onClick={() => setActiveTab('console')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'console' ? "bg-md-primary text-md-on-primary text-md-text-strong shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
+                activeTab === 'console' ? "bg-md-primary text-md-on-primary shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
               )}
             >
               CONSOLE
@@ -2087,7 +2157,7 @@ except Exception as e:
               onClick={() => setActiveTab('factory')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'factory' ? "bg-md-primary text-md-on-primary text-md-text-strong shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
+                activeTab === 'factory' ? "bg-md-primary text-md-on-primary shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
               )}
             >
               SCRIPT FACTORY
@@ -2105,7 +2175,7 @@ except Exception as e:
               onClick={() => setActiveTab('streaming')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'streaming' ? "bg-md-primary text-md-on-primary text-md-text-strong shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
+                activeTab === 'streaming' ? "bg-md-primary text-md-on-primary shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
               )}
             >
               STREAMING
@@ -2114,7 +2184,7 @@ except Exception as e:
               onClick={() => setActiveTab('materials')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'materials' ? "bg-md-primary text-md-on-primary text-md-text-strong shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
+                activeTab === 'materials' ? "bg-md-primary text-md-on-primary shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
               )}
             >
               PBR FORGE
@@ -2123,7 +2193,7 @@ except Exception as e:
               onClick={() => setActiveTab('animations')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'animations' ? "bg-md-primary text-md-on-primary text-md-text-strong shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
+                activeTab === 'animations' ? "bg-md-primary text-md-on-primary shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
               )}
             >
               ANIMATIONS
@@ -2132,7 +2202,7 @@ except Exception as e:
               onClick={() => setActiveTab('cinematics')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'cinematics' ? "bg-md-primary text-md-on-primary text-md-text-strong shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
+                activeTab === 'cinematics' ? "bg-md-primary text-md-on-primary shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
               )}
             >
               CINEMATICS
@@ -2177,22 +2247,24 @@ except Exception as e:
               onClick={() => setActiveTab('audit')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'audit' ? "bg-md-primary text-md-on-primary text-md-text-strong shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
+                activeTab === 'audit' ? "bg-md-primary text-md-on-primary shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
               )}
             >
               AUDIT LOG
             </button>
           </div>
-          <div className="h-6 w-px bg-[#202024]" />
+          <div className="h-6 w-px bg-md-surface2" />
           <button 
             id="settings-btn"
             onClick={() => setShowSettings(!showSettings)}
-            className="p-2 hover:bg-[#202024] rounded-xl transition-colors text-md-text-muted hover:text-md-text-strong"
+            className="p-2 hover:bg-md-surface2 rounded-xl transition-colors text-md-text-muted hover:text-md-text-strong"
           >
             <Settings className="w-5 h-5" />
           </button>
         </div>
       </header>
+
+      <PerformanceHUD stats={uePerformanceStats} />
 
       <main className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_400px] h-[calc(100vh-73px)]">
         {/* Main Interface */}
@@ -2221,7 +2293,7 @@ except Exception as e:
                 </div>
                 
                 <div className="space-y-4">
-                  <p className="text-sm text-md-text leading-relaxed italic border-l-2 border-[#9462E1] pl-3">
+                  <p className="text-sm text-md-text leading-relaxed italic border-l-2 border-md-primary pl-3">
                     "{currentAIResponse.explanation}"
                   </p>
                   
@@ -2240,7 +2312,7 @@ except Exception as e:
                     <button 
                       id="view-code-btn"
                       onClick={() => setViewingCode(true)}
-                      className="flex items-center justify-center gap-2 bg-[#29292E] hover:bg-[#323238] text-md-text-strong font-bold py-2.5 rounded-xl transition-all"
+                      className="flex items-center justify-center gap-2 bg-md-surface3 hover:bg-md-border text-md-text-strong font-bold py-2.5 rounded-xl transition-all"
                     >
                       <Code2 className="w-4 h-4" />
                       Ver Código
@@ -2258,13 +2330,13 @@ except Exception as e:
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder="Ex: Crie um cubo metálico no centro da cena com luz azul..."
                 disabled={loading}
-                className="w-full bg-md-surface1 border border-md-border rounded-2xl px-4 py-4 pr-32 focus:outline-none focus:border-[#9462E1] focus:ring-1 focus:ring-[#9462E1] transition-all placeholder:text-md-text-muted"
+                className="w-full bg-md-surface1 border border-md-border rounded-2xl px-4 py-4 pr-32 focus:outline-none focus:border-md-primary focus:ring-1 focus:ring-md-primary transition-all placeholder:text-md-text-muted"
               />
               <div className="absolute right-2 top-2/2 -translate-y-1/2 flex items-center gap-2">
                 <button 
                   type="submit"
                   disabled={loading || !prompt.trim()}
-                  className="bg-md-primary text-md-on-primary disabled:bg-[#29292E] disabled:text-md-text-muted hover:bg-md-primary-hover text-md-text-strong font-bold px-4 py-2 rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-[#9462E1]/10"
+                  className="bg-md-primary text-md-on-primary disabled:bg-md-surface3 disabled:text-md-text-muted hover:bg-md-primary-hover text-md-text-strong font-bold px-4 py-2 rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-[#9462E1]/10"
                 >
                   {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send className="w-4 h-4" />}
                   <span>Enviar</span>
@@ -2302,7 +2374,7 @@ except Exception as e:
                     type="text" 
                     value={connection.url}
                     onChange={(e) => setConnection(v => ({ ...v, url: e.target.value }))}
-                    className="bg-md-surface2 border border-md-border rounded px-2 py-1 text-xs focus:outline-none focus:border-[#9462E1]" 
+                    className="bg-md-surface2 border border-md-border rounded px-2 py-1 text-xs focus:outline-none focus:border-md-primary" 
                     placeholder="http://localhost"
                   />
                 </div>
@@ -2312,7 +2384,7 @@ except Exception as e:
                     type="text" 
                     value={connection.port}
                     onChange={(e) => setConnection(v => ({ ...v, port: e.target.value }))}
-                    className="bg-md-surface2 border border-md-border rounded px-2 py-1 text-xs focus:outline-none focus:border-[#9462E1]" 
+                    className="bg-md-surface2 border border-md-border rounded px-2 py-1 text-xs focus:outline-none focus:border-md-primary" 
                     placeholder="8080"
                   />
                 </div>
@@ -2320,7 +2392,7 @@ except Exception as e:
 
               <button 
                 onClick={handleUEConnectionTest}
-                className="w-full py-2 bg-[#29292E] hover:bg-[#323238] rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                className="w-full py-2 bg-md-surface3 hover:bg-md-border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
               >
                 <Activity className="w-3.5 h-3.5" />
                 Testar Conexão
@@ -2336,7 +2408,7 @@ except Exception as e:
                     <button 
                       key={cmd.id}
                       onClick={() => setPrompt(cmd.text)}
-                      className="text-[10px] bg-md-primary text-md-on-primary/10 hover:bg-md-primary text-md-on-primary/20 text-md-primary px-2 py-1 rounded transition-all border border-[#9462E1]/30 truncate max-w-[180px] flex items-center gap-2.5"
+                      className="text-[10px] bg-md-primary text-md-on-primary hover:bg-md-primary-hover hover:text-md-on-primary px-2 py-1 rounded transition-all border border-md-primary truncate max-w-[180px] flex items-center gap-2.5"
                     >
                       <Bookmark className="w-2.5 h-2.5" fill="currentColor" />
                       {cmd.text}
@@ -2368,14 +2440,14 @@ except Exception as e:
                   </button>
                   <button 
                     onClick={() => setPrompt("Crie uma CineCameraActor na posição X=500, Y=0, Z=200 olhando para a origem com FOV 60")}
-                    className="text-left p-3 bg-md-surface1/50 rounded-xl hover:bg-md-primary text-md-on-primary/10 border border-transparent hover:border-[#9462E1]/30 transition-all group"
+                    className="text-left p-3 bg-md-surface1 rounded-xl hover:bg-md-primary-hover hover:text-md-on-primary border border-transparent hover:border-md-primary transition-all group"
                   >
                     <p className="text-[10px] font-bold text-md-primary mb-1">CINE CAMERA</p>
                     <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Spawn Câmera Cinemática Configurável</p>
                   </button>
                   <button 
                     onClick={() => setPrompt("Mude o Field of View da câmera selecionada para 90 graus")}
-                    className="text-left p-3 bg-md-surface1/50 rounded-xl hover:bg-md-primary text-md-on-primary/10 border border-transparent hover:border-[#9462E1]/30 transition-all group"
+                    className="text-left p-3 bg-md-surface1 rounded-xl hover:bg-md-primary-hover hover:text-md-on-primary border border-transparent hover:border-md-primary transition-all group"
                   >
                     <p className="text-[10px] font-bold text-md-primary mb-1">LENS CONTROL</p>
                     <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Ajustar Campo de Visão (FOV)</p>
@@ -2395,14 +2467,14 @@ except Exception as e:
                   </button>
                   <button 
                     onClick={() => setPrompt("Aplique um material de Ouro Polido ao objeto selecionado (Metallic=1, Roughness=0.1, BaseColor=(1, 0.7, 0.1))")}
-                    className="text-left p-3 bg-md-surface1/50 rounded-xl hover:bg-md-primary text-md-on-primary/10 border border-transparent hover:border-[#9462E1]/30 transition-all group"
+                    className="text-left p-3 bg-md-surface1 rounded-xl hover:bg-md-primary-hover hover:text-md-on-primary border border-transparent hover:border-md-primary transition-all group"
                   >
                     <p className="text-[10px] font-bold text-amber-500 mb-1">GOLD PBR</p>
                     <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Material Metálico Dourado</p>
                   </button>
                   <button 
                     onClick={() => setPrompt("Faça o objeto brilhar com uma luz neon vermelha intensa (Emissive=(10, 0, 0))")}
-                    className="text-left p-3 bg-md-surface1/50 rounded-xl hover:bg-md-primary text-md-on-primary/10 border border-transparent hover:border-[#9462E1]/30 transition-all group"
+                    className="text-left p-3 bg-md-surface1 rounded-xl hover:bg-md-primary-hover hover:text-md-on-primary border border-transparent hover:border-md-primary transition-all group"
                   >
                     <p className="text-[10px] font-bold text-red-500 mb-1">NEON GLOW</p>
                     <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Ajustar Emissão de Luz</p>
@@ -2415,14 +2487,14 @@ except Exception as e:
                 <div className="grid grid-cols-1 gap-2">
                   <button 
                     onClick={() => setPrompt("Configure o SK_Mannequin para usar o asset de animação 'AS_Run_Fwd' e coloque em loop com PlayRate 1.2")}
-                    className="text-left p-3 bg-md-surface1/50 rounded-xl hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-all group"
+                    className="text-left p-3 bg-md-surface1 rounded-xl hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-all group"
                   >
                     <p className="text-[10px] font-bold text-rose-500 mb-1">RUN CYCLE</p>
                     <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Aplicar Animação de Corrida</p>
                   </button>
                   <button 
                     onClick={() => setPrompt("Pause todas as animações do actor 'SK_Robotic_Arm' e volte para o frame inicial")}
-                    className="text-left p-3 bg-md-surface1/50 rounded-xl hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-all group"
+                    className="text-left p-3 bg-md-surface1 rounded-xl hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-all group"
                   >
                     <p className="text-[10px] font-bold text-amber-500 mb-1">HALT SEQUENCE</p>
                     <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Interromper e Resetar Reprodução</p>
@@ -2435,14 +2507,14 @@ except Exception as e:
                 <div className="grid grid-cols-1 gap-2">
                   <button 
                     onClick={() => setPrompt("Configure 3 níveis de LOD para o mesh 'SM_Rock_01' com reduções de 100%, 50% e 25% de triângulos")}
-                    className="text-left p-3 bg-md-surface1/50 rounded-xl hover:bg-md-primary text-md-on-primary/10 border border-transparent hover:border-[#9462E1]/30 transition-all group"
+                    className="text-left p-3 bg-md-surface1 rounded-xl hover:bg-md-primary-hover hover:text-md-on-primary border border-transparent hover:border-md-primary transition-all group"
                   >
                     <p className="text-[10px] font-bold text-green-500 mb-1">AUTO LOD</p>
                     <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Gerar Níveis de Detalhe</p>
                   </button>
                   <button 
                     onClick={() => setPrompt("Aplique uma política de LOD agressiva para todos os Static Meshes na pasta /Game/Vegetation/ com base em distância do jogador")}
-                    className="text-left p-3 bg-md-surface1/50 rounded-xl hover:bg-amber-500/10 border border-transparent hover:border-amber-500/30 transition-all group"
+                    className="text-left p-3 bg-md-surface1 rounded-xl hover:bg-amber-500/10 border border-transparent hover:border-amber-500/30 transition-all group"
                   >
                     <p className="text-[10px] font-bold text-amber-500 mb-1">BATCH OPTIMIZE</p>
                     <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Otimização em Massa de Ativos</p>
@@ -2452,7 +2524,7 @@ except Exception as e:
 
               <div className="space-y-3">
                 <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest pl-1">Auditoria de Sistema</h3>
-                <div className="bg-md-surface1/50 rounded-2xl border border-md-border p-4 space-y-4">
+                <div className="bg-md-surface1 rounded-2xl border border-md-border p-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] text-md-text-muted uppercase font-bold">Integridade</span>
                     <span className="text-[10px] text-emerald-500 font-mono">ESTÁVEL</span>
@@ -2465,13 +2537,13 @@ except Exception as e:
                     onClick={async () => {
                         addLog('ai', 'Iniciando auditoria real do sistema Engine...');
                         try {
-                           const res = await auditSystem();
-                           addLog('ue', `Auditoria concluída. Objects: ${res.totalObjects}, Memory: ${res.usedMemoryMB}MB`);
+                           await auditSystem();
+                           addLog('ue', `Auditoria concluída.`);
                         } catch (err: any) {
                            addLog('error', 'Falha na auditoria de sistema', err.message);
                         }
                     }}
-                    className="w-full py-2 bg-md-primary text-md-on-primary/10 hover:bg-md-primary text-md-on-primary/20 border border-[#9462E1]/30 rounded-xl text-[11px] font-bold text-md-primary transition-all"
+                    className="w-full py-2 bg-md-primary text-md-on-primary hover:bg-md-primary-hover hover:text-md-on-primary border border-md-primary rounded-xl text-[11px] font-bold text-md-primary transition-all"
                   >
                     EXECUTAR VARREDURA DE SISTEMA
                   </button>
@@ -2488,8 +2560,8 @@ except Exception as e:
                   "Configure LODs para performance",
                   "Mude iluminação em tempo real"
                 ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 bg-md-surface1/50 rounded-xl group hover:bg-md-surface1 transition-colors">
-                    <div className="w-5 h-5 rounded bg-[#202024] flex items-center justify-center text-[10px] font-bold text-md-text-muted group-hover:text-md-primary">
+                  <div key={i} className="flex items-center gap-3 p-3 bg-md-surface1 rounded-xl group hover:bg-md-surface1 transition-colors">
+                    <div className="w-5 h-5 rounded bg-md-surface2 flex items-center justify-center text-[10px] font-bold text-md-text-muted group-hover:text-md-primary">
                       0{i+1}
                     </div>
                     <span className="text-xs text-md-text-muted font-medium">{item}</span>
@@ -2508,23 +2580,6 @@ except Exception as e:
           </div>
         </aside>
       </main>
-
-      {/* Global Styles */}
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: #121214;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #29292E;
-          border-radius: 3px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #323238;
-        }
-      `}</style>
     </div>
   );
 }

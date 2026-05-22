@@ -161,7 +161,7 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
               onClick={() => setAutoStreaming(!autoStreaming)}
               className={`flex items-center gap-2 px-6 py-3 rounded-2xl border font-black text-[10px] uppercase tracking-widest transition-all ${
                 autoStreaming 
-                ? "bg-md-primary text-md-on-primary/10 border-blue-500/50 text-md-primary shadow-[0_0_20px_rgba(59,130,246,0.3)]" 
+                ? "bg-md-primary text-md-on-primary border-blue-500/50 text-md-primary shadow-[0_0_20px_rgba(59,130,246,0.3)]" 
                 : "bg-red-500/10 border-red-500/50 text-red-500"
               }`}
             >
@@ -173,7 +173,7 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
               className={`flex items-center gap-2 px-6 py-3 rounded-2xl border font-black text-[10px] uppercase tracking-widest transition-all ${
                 useFrustumCulling 
                 ? "bg-purple-500/10 border-purple-500/50 text-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.3)]" 
-                : "bg-[#29292E] border-transparent text-md-text-muted"
+                : "bg-md-surface3 border-transparent text-md-text-muted"
               }`}
             >
               <Target className="w-4 h-4" />
@@ -253,7 +253,7 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
                     >
                       <div className="flex items-center gap-6">
                         <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
-                          asset.status === 'LOADED' ? "bg-md-primary text-md-on-primary/20 text-md-primary" : "bg-md-surface2 text-md-text-muted"
+                          asset.status === 'LOADED' ? "bg-md-primary text-md-on-primary" : "bg-md-surface2 text-md-text-muted"
                         }`}>
                           <Box className="w-7 h-7" />
                         </div>
@@ -309,8 +309,8 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
                                {asset.status}
                             </span>
                             <div className="flex justify-end gap-2">
-                               <div className={`h-0.5 w-8 rounded-full ${asset.status === 'LOADED' ? "bg-emerald-500" : "bg-[#29292E]"}`} />
-                               <div className={`h-0.5 w-4 rounded-full ${asset.distance! < asset.loadRadius * 0.5 ? "bg-emerald-500" : "bg-[#29292E]"}`} />
+                               <div className={`h-0.5 w-8 rounded-full ${asset.status === 'LOADED' ? "bg-emerald-500" : "bg-md-surface3"}`} />
+                               <div className={`h-0.5 w-4 rounded-full ${asset.distance! < asset.loadRadius * 0.5 ? "bg-emerald-500" : "bg-md-surface3"}`} />
                             </div>
                          </div>
                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">

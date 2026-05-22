@@ -11,6 +11,7 @@
   
   --color-md-border: var(--md-sys-color-outline-variant);
   --color-md-border-hover: var(--md-sys-color-outline);
+  --color-md-primary: var(--md-sys-color-primary);
   
   --color-md-text-muted: var(--md-sys-color-on-surface-variant);
   --color-md-text: var(--md-sys-color-on-surface);

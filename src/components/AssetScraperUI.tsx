@@ -103,7 +103,7 @@ export const AssetScraperUI: React.FC<{ addLog: (t: any, m: string) => void }> =
               <div className="space-y-4">
                 {results.map((result, idx) => (
                   <div key={idx} className="bg-md-surface2 border border-md-border rounded-2xl overflow-hidden hover:border-md-border transition-all">
-                    <div className="p-4 bg-[#1A1A1E] border-b border-md-border flex items-center justify-between">
+                    <div className="p-4 bg-md-surface1 border-b border-md-border flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         {result.status === 200 ? (
                           <CheckCircle className="w-4 h-4 text-emerald-500" />

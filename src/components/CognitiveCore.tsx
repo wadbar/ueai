@@ -71,7 +71,7 @@ export const CognitiveCore: React.FC<{
                           const concrete = materials.find(m => m.id === 'M_Industrial_Concrete');
                           if (concrete) onApplyMaterial('M_Industrial_Concrete', concrete);
                         }}
-                        className="w-full py-2 bg-md-primary text-md-on-primary/10 hover:bg-md-primary text-md-on-primary/20 border border-blue-500/30 text-md-primary rounded-2xl text-[10px] font-black uppercase transition-all"
+                        className="w-full py-2 bg-md-primary text-md-on-primary hover:bg-md-primary-hover hover:text-md-on-primary border border-blue-500/30 text-md-primary rounded-2xl text-[10px] font-black uppercase transition-all"
                       >
                         Aplicar M_Industrial_Concrete
                       </button>

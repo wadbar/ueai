@@ -50,7 +50,7 @@ export const TelemetryView: React.FC = () => {
           <div className="bg-md-surface2 border border-md-border p-8 rounded-[32px] space-y-6 relative overflow-hidden group">
             <div className="flex items-center justify-between relative z-10">
               <Database className="w-8 h-8 text-md-primary" />
-              <div className="px-2 py-1 bg-md-primary text-md-on-primary/10 text-md-primary text-[9px] font-black rounded uppercase">RSS_ALLOC</div>
+              <div className="px-2 py-1 bg-md-primary text-md-on-primary text-[9px] font-black rounded uppercase">RSS_ALLOC</div>
             </div>
             <div className="space-y-1 relative z-10">
               <div className="flex items-baseline gap-2">
@@ -68,7 +68,7 @@ export const TelemetryView: React.FC = () => {
           <div className="bg-md-surface2 border border-md-border p-8 rounded-[32px] space-y-6 relative overflow-hidden group">
             <div className="flex items-center justify-between relative z-10">
               <Cpu className="w-8 h-8 text-md-primary" />
-              <div className="px-2 py-1 bg-md-primary text-md-on-primary/10 text-md-primary text-[9px] font-black rounded uppercase">JS_HEAP</div>
+              <div className="px-2 py-1 bg-md-primary text-md-on-primary text-[9px] font-black rounded uppercase">JS_HEAP</div>
             </div>
             <div className="space-y-1 relative z-10">
               <div className="flex items-baseline gap-2">
@@ -137,12 +137,12 @@ export const TelemetryView: React.FC = () => {
                    <motion.div 
                      initial={{ height: 0 }}
                      animate={{ height: `${(h.memory.rss / stats.memory.rss) * 100}%` }}
-                     className="w-full bg-md-primary text-md-on-primary/20 group-hover:bg-md-primary text-md-on-primary/40 transition-colors rounded-t-sm"
+                     className="w-full bg-md-primary text-md-on-primary group-hover:bg-md-primary-hover hover:text-md-on-primary transition-colors rounded-t-sm"
                    />
                    <motion.div 
                       initial={{ height: 0 }}
                       animate={{ height: `${(h.memory.heapUsed / stats.memory.rss) * 100}%` }}
-                      className="w-full bg-md-primary text-md-on-primary/40 group-hover:bg-md-primary text-md-on-primary/60 transition-colors rounded-t-sm absolute bottom-0.5"
+                      className="w-full bg-md-primary text-md-on-primary group-hover:bg-md-primary-hover hover:text-md-on-primary transition-colors rounded-t-sm absolute bottom-0.5"
                    />
                 </div>
               ))}

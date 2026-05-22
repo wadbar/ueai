@@ -62,7 +62,7 @@ export const ScriptFactory: React.FC<ScriptFactoryProps> = ({
                       key={cat}
                       onClick={() => setActiveCategory(cat)}
                       className={`px-4 py-2 rounded-xl text-[10px] font-bold transition-all ${
-                        activeCategory === cat ? "bg-md-primary text-md-on-primary text-md-text-strong shadow-[0_0_15px_rgba(148,98,225,0.4)]" : "text-md-text-muted hover:text-md-text-muted"
+                        activeCategory === cat ? "bg-md-primary text-md-on-primary shadow-[0_0_15px_rgba(148,98,225,0.4)]" : "text-md-text-muted hover:text-md-text-muted"
                       }`}
                     >
                       {cat}
@@ -234,7 +234,7 @@ unreal.log(f"Iniciando acoplamento com: {actor_path}")
                   placeholder="Filtrar histórico..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-black/40 border border-md-border pl-10 pr-4 py-3 rounded-2xl text-xs text-md-text-strong focus:border-[#9462E1] outline-none transition-all placeholder:text-md-text-muted"
+                  className="w-full bg-black/40 border border-md-border pl-10 pr-4 py-3 rounded-2xl text-xs text-md-text-strong focus:border-md-primary outline-none transition-all placeholder:text-md-text-muted"
                 />
               </div>
               
@@ -243,7 +243,7 @@ unreal.log(f"Iniciando acoplamento com: {actor_path}")
                     <motion.div 
                       layout
                       key={cmd.id} 
-                      className="group p-4 bg-md-surface1 border border-md-border rounded-2xl hover:border-[#9462E1]/50 transition-all space-y-3 relative overflow-hidden"
+                      className="group p-4 bg-md-surface1 border border-md-border rounded-2xl hover:border-md-primary transition-all space-y-3 relative overflow-hidden"
                     >
                        <div className="flex items-start justify-between gap-2">
                           <button 
@@ -296,7 +296,7 @@ unreal.log(f"Iniciando acoplamento com: {actor_path}")
               </div>
             </div>
 
-            <div className="p-8 bg-gradient-to-br from-[#9462E1]/10 to-transparent border border-[#9462E1]/20 rounded-3xl space-y-4">
+            <div className="p-8 bg-gradient-to-br from-[#9462E1]/10 to-transparent border border-md-primary rounded-3xl space-y-4">
               <div className="flex items-center gap-3">
                 <Database className="w-5 h-5 text-md-primary" />
                 <h3 className="font-black text-md-text-strong uppercase tracking-widest text-xs">Core Stats</h3>
