@@ -51,6 +51,7 @@ import { AuditTerminal } from './components/AuditTerminal';
 import { StreamingManager } from './components/StreamingManager';
 import { SceneInspector } from './components/SceneInspector';
 import { CognitiveCore } from './components/CognitiveCore';
+import { Panel } from './components/Panel';
 import { AssetScraperUI } from './components/AssetScraperUI';
 import { CinematicsManager } from './components/CinematicsManager';
 import { VirtualController } from './components/VirtualController';
@@ -138,14 +139,14 @@ export default function App() {
 
   const [currentAIResponse, setCurrentAIResponse] = useState<AIResponse | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [activeTab, setActiveTab] = useState<'console' | 'factory' | 'system' | 'streaming' | 'materials' | 'animations' | 'cinematics' | 'lod' | 'audit' | 'cognitive' | 'inspector' | 'scraper' | 'controller' | 'laboratory' | 'world'>('cognitive');
+  const [activeTab, setActiveTab] = useState<'console' | 'factory' | 'system' | 'streaming' | 'materials' | 'animations' | 'cinematics' | 'lod' | 'audit' | 'cognitive' | 'inspector' | 'scraper' | 'controller' | 'laboratory' | 'world' | 'dashboard'>('dashboard');
   const [isDarkMode, setIsDarkMode] = useState(true);
 
   useEffect(() => {
     if (isDarkMode) {
-      document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
     } else {
-      document.documentElement.classList.remove('dark');
+      document.documentElement.setAttribute('data-theme', 'light');
     }
   }, [isDarkMode]);
 
@@ -1198,6 +1199,8 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'dashboard':
+        return <Panel />;
       case 'console':
         return (
           <div className="flex-1 overflow-auto p-6 space-y-4 font-mono text-sm custom-scrollbar" ref={scrollRef}>
@@ -2017,13 +2020,15 @@ except Exception as e:
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm"
           >
             <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-md-surface2 border border-md-border rounded-2xl w-full max-w-4xl max-h-[80vh] flex flex-col shadow-2xl"
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              transition={{ duration: 0.4, ease: [0.2, 0, 0, 1] }}
+              className="bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-3xl w-full max-w-4xl max-h-[80vh] flex flex-col shadow-2xl overflow-hidden"
             >
               <div className="p-6 border-b border-md-border flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -2083,31 +2088,33 @@ except Exception as e:
       </AnimatePresence>
 
       {/* Header */}
-      <header className="border-b border-md-border bg-md-surface2 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <Zap className="text-md-text-strong w-6 h-6" />
+      <header className="border-b border-md-border bg-md-surface1/80 backdrop-blur-md px-4 md:px-8 py-5 flex items-center justify-between sticky top-0 z-10 shadow-md transition-colors duration-300 ease-in-out">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl flex items-center justify-center shadow-[0_4px_16px_rgba(99,102,241,0.2)]">
+            <Zap className="text-white w-6 h-6" />
           </div>
           <div>
-            <h1 className="font-bold text-lg tracking-tight">UE Architect</h1>
-            <div className="flex items-center gap-2">
+            <h1 className="font-bold text-xl tracking-tight">UE Architect</h1>
+            <div className="flex items-center gap-3 mt-0.5">
               <span className={cn(
-                "w-2 h-2 rounded-full transition-all duration-500",
+                "w-2.5 h-2.5 rounded-full transition-all duration-500",
                 connection.connected ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]"
               )} />
-              <p className="text-xs text-md-text-muted font-medium">
-                {connection.connected ? `Runtime_V12: ${connection.port}` : "Link Offline"}
+              <p className="text-xs text-md-text-muted font-bold tracking-wide">
+                {connection.connected ? `API PORT ${connection.port}` : "OFFLINE"}
               </p>
               <div className="w-px h-3 bg-md-border mx-1" />
-              <div className="flex items-center gap-2.5 overflow-hidden">
+              <div className="flex items-center gap-3 overflow-hidden">
                  <span className={cn(
-                   "text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-tighter",
-                   ((systemHealth.status as any) === 'operational' || systemHealth.status === 'online') ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500"
+                   "text-[10px] font-bold px-2 py-1 rounded bg-md-surface2 uppercase tracking-wide flex items-center gap-1.5",
+                   ((systemHealth.status as any) === 'operational' || systemHealth.status === 'online') ? "text-emerald-500" : "text-amber-500"
                  )}>
-                   AI: {systemHealth.status}
+                   <span>STATUS</span>
+                   <span>•</span>
+                   <span>{systemHealth.status}</span>
                  </span>
                  {systemHealth.memory && (
-                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/5 text-md-text-muted uppercase tracking-tighter">
+                   <span className="text-[10px] font-bold px-2 py-1 rounded bg-md-surface2 text-md-text-muted uppercase tracking-wide">
                      MEM: {((systemHealth.memory.used || 0) / 1024 / 1024).toFixed(0)}MB
                    </span>
                  )}
@@ -2116,21 +2123,31 @@ except Exception as e:
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-6">
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
-            className="p-2 bg-md-surface3 text-md-text-muted hover:text-md-text-strong hover:bg-md-primary-hover rounded-full transition-all"
+            className="w-12 h-12 flex items-center justify-center bg-md-surface2 hover:bg-md-primary/10 text-md-text-muted hover:text-md-primary rounded-full transition-all flex-shrink-0"
             title="Toggle Theme"
           >
-            {isDarkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-slate-800" />}
+            {isDarkMode ? <Sun className="w-6 h-6 text-amber-500" /> : <Moon className="w-6 h-6" />}
           </button>
           
-          <div className="bg-md-surface2 p-2 rounded-xl flex items-center gap-2">
+          <div className="flex-1 overflow-x-auto custom-scrollbar flex items-center gap-2 px-2 py-1">
+            <div className="flex bg-md-surface1 p-1 rounded-full border border-md-border/50 shadow-sm w-max">
+            <button 
+              onClick={() => setActiveTab('dashboard')}
+              className={cn(
+                "px-6 py-3 rounded-full text-[13px] font-bold tracking-wide transition-all min-h-[48px] whitespace-nowrap",
+                activeTab === 'dashboard' ? "bg-blue-600/10 text-blue-600 dark:bg-blue-600 dark:text-white shadow-[0_2px_8px_rgba(37,99,235,0.2)]" : "text-md-text-muted hover:bg-md-surface2 hover:text-md-text-strong"
+              )}
+            >
+              DASHBOARD
+            </button>
             <button 
               onClick={() => setActiveTab('cognitive')}
               className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'cognitive' ? "bg-purple-600 text-md-text-strong shadow-lg shadow-purple-500/20" : "text-md-text-muted hover:text-md-text-strong"
+                "px-6 py-3 rounded-full text-[13px] font-bold tracking-wide transition-all min-h-[48px] whitespace-nowrap",
+                activeTab === 'cognitive' ? "bg-purple-600/10 text-purple-600 dark:bg-purple-600 dark:text-white shadow-[0_2px_8px_rgba(147,51,234,0.2)]" : "text-md-text-muted hover:bg-md-surface2 hover:text-md-text-strong"
               )}
             >
               COGNITIVE CORE
@@ -2138,8 +2155,8 @@ except Exception as e:
             <button 
               onClick={() => setActiveTab('inspector')}
               className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'inspector' ? "bg-blue-600 text-md-text-strong shadow-lg shadow-blue-500/20" : "text-md-text-muted hover:text-md-text-strong"
+                "px-6 py-3 rounded-full text-[13px] font-bold tracking-wide transition-all min-h-[48px] whitespace-nowrap",
+                activeTab === 'inspector' ? "bg-blue-600/10 text-blue-600 dark:bg-blue-600 dark:text-white shadow-[0_2px_8px_rgba(37,99,235,0.2)]" : "text-md-text-muted hover:bg-md-surface2 hover:text-md-text-strong"
               )}
             >
               SCENE HIERARCHY
@@ -2147,8 +2164,8 @@ except Exception as e:
             <button 
               onClick={() => setActiveTab('console')}
               className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'console' ? "bg-md-primary text-md-on-primary shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
+                "px-5 py-2.5 rounded-full text-[12px] font-bold tracking-wide transition-all min-h-[40px] whitespace-nowrap",
+                activeTab === 'console' ? "bg-md-primary/10 text-md-primary dark:bg-md-primary dark:text-md-on-primary shadow-[0_2px_8px_rgba(103,80,164,0.2)]" : "text-md-text-muted hover:bg-md-surface2 hover:text-md-text-strong"
               )}
             >
               CONSOLE
@@ -2156,8 +2173,8 @@ except Exception as e:
             <button 
               onClick={() => setActiveTab('factory')}
               className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'factory' ? "bg-md-primary text-md-on-primary shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
+                "px-5 py-2.5 rounded-full text-[12px] font-bold tracking-wide transition-all min-h-[40px] whitespace-nowrap",
+                activeTab === 'factory' ? "bg-md-primary/10 text-md-primary dark:bg-md-primary dark:text-md-on-primary shadow-[0_2px_8px_rgba(103,80,164,0.2)]" : "text-md-text-muted hover:bg-md-surface2 hover:text-md-text-strong"
               )}
             >
               SCRIPT FACTORY
@@ -2165,8 +2182,8 @@ except Exception as e:
             <button 
               onClick={() => setActiveTab('world')}
               className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'world' ? "bg-indigo-600 text-md-text-strong shadow-lg shadow-indigo-500/20" : "text-md-text-muted hover:text-md-text-strong"
+                "px-5 py-2.5 rounded-full text-[12px] font-bold tracking-wide transition-all min-h-[40px] whitespace-nowrap",
+                activeTab === 'world' ? "bg-indigo-600/10 text-indigo-600 dark:bg-indigo-600 dark:text-white shadow-[0_2px_8px_rgba(79,70,229,0.2)]" : "text-md-text-muted hover:bg-md-surface2 hover:text-md-text-strong"
               )}
             >
               WORLD SETTINGS
@@ -2174,8 +2191,8 @@ except Exception as e:
             <button 
               onClick={() => setActiveTab('streaming')}
               className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'streaming' ? "bg-md-primary text-md-on-primary shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
+                "px-5 py-2.5 rounded-full text-[12px] font-bold tracking-wide transition-all min-h-[40px] whitespace-nowrap",
+                activeTab === 'streaming' ? "bg-md-primary/10 text-md-primary dark:bg-md-primary dark:text-md-on-primary shadow-sm" : "text-md-text-muted hover:bg-md-surface2 hover:text-md-text-strong"
               )}
             >
               STREAMING
@@ -2183,8 +2200,8 @@ except Exception as e:
             <button 
               onClick={() => setActiveTab('materials')}
               className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'materials' ? "bg-md-primary text-md-on-primary shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
+                "px-5 py-2.5 rounded-full text-[12px] font-bold tracking-wide transition-all min-h-[40px] whitespace-nowrap",
+                activeTab === 'materials' ? "bg-md-primary/10 text-md-primary dark:bg-md-primary dark:text-md-on-primary shadow-sm" : "text-md-text-muted hover:bg-md-surface2 hover:text-md-text-strong"
               )}
             >
               PBR FORGE
@@ -2192,8 +2209,8 @@ except Exception as e:
             <button 
               onClick={() => setActiveTab('animations')}
               className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'animations' ? "bg-md-primary text-md-on-primary shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
+                "px-5 py-2.5 rounded-full text-[12px] font-bold tracking-wide transition-all min-h-[40px] whitespace-nowrap",
+                activeTab === 'animations' ? "bg-md-primary/10 text-md-primary dark:bg-md-primary dark:text-md-on-primary shadow-sm" : "text-md-text-muted hover:bg-md-surface2 hover:text-md-text-strong"
               )}
             >
               ANIMATIONS
@@ -2201,8 +2218,8 @@ except Exception as e:
             <button 
               onClick={() => setActiveTab('cinematics')}
               className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'cinematics' ? "bg-md-primary text-md-on-primary shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
+                "px-5 py-2.5 rounded-full text-[12px] font-bold tracking-wide transition-all min-h-[40px] whitespace-nowrap",
+                activeTab === 'cinematics' ? "bg-md-primary/10 text-md-primary dark:bg-md-primary dark:text-md-on-primary shadow-sm" : "text-md-text-muted hover:bg-md-surface2 hover:text-md-text-strong"
               )}
             >
               CINEMATICS
@@ -2210,8 +2227,8 @@ except Exception as e:
             <button 
               onClick={() => setActiveTab('controller')}
               className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'controller' ? "bg-cyan-600 text-md-text-strong shadow-lg shadow-cyan-500/20" : "text-md-text-muted hover:text-md-text-strong"
+                "px-5 py-2.5 rounded-full text-[12px] font-bold tracking-wide transition-all min-h-[40px] whitespace-nowrap",
+                activeTab === 'controller' ? "bg-cyan-600/10 text-cyan-600 dark:bg-cyan-600 dark:text-white shadow-[0_2px_8px_rgba(8,145,178,0.2)]" : "text-md-text-muted hover:bg-md-surface2 hover:text-md-text-strong"
               )}
             >
               CONTROLLER
@@ -2219,8 +2236,8 @@ except Exception as e:
             <button 
               onClick={() => setActiveTab('lod')}
               className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'lod' ? "bg-amber-500 text-black shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
+                "px-5 py-2.5 rounded-full text-[12px] font-bold tracking-wide transition-all min-h-[40px] whitespace-nowrap",
+                activeTab === 'lod' ? "bg-amber-500/10 text-amber-600 dark:bg-amber-500 dark:text-black shadow-sm" : "text-md-text-muted hover:bg-md-surface2 hover:text-md-text-strong"
               )}
             >
               LOD MANAGER
@@ -2228,8 +2245,8 @@ except Exception as e:
             <button 
               onClick={() => setActiveTab('scraper')}
               className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'scraper' ? "bg-emerald-500 text-black shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
+                "px-5 py-2.5 rounded-full text-[12px] font-bold tracking-wide transition-all min-h-[40px] whitespace-nowrap",
+                activeTab === 'scraper' ? "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500 dark:text-black shadow-sm" : "text-md-text-muted hover:bg-md-surface2 hover:text-md-text-strong"
               )}
             >
               ASSET SCRAPER
@@ -2237,8 +2254,8 @@ except Exception as e:
             <button 
               onClick={() => setActiveTab('laboratory')}
               className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'laboratory' ? "bg-indigo-600 text-md-text-strong shadow-lg shadow-indigo-500/20" : "text-md-text-muted hover:text-md-text-strong"
+                "px-5 py-2.5 rounded-full text-[12px] font-bold tracking-wide transition-all min-h-[40px] whitespace-nowrap",
+                activeTab === 'laboratory' ? "bg-indigo-600/10 text-indigo-600 dark:bg-indigo-600 dark:text-white shadow-[0_2px_8px_rgba(79,70,229,0.2)]" : "text-md-text-muted hover:bg-md-surface2 hover:text-md-text-strong"
               )}
             >
               LABORATORY
@@ -2246,12 +2263,13 @@ except Exception as e:
             <button 
               onClick={() => setActiveTab('audit')}
               className={cn(
-                "px-3 py-1.5 rounded-md text-[11px] font-bold transition-all",
-                activeTab === 'audit' ? "bg-md-primary text-md-on-primary shadow-lg" : "text-md-text-muted hover:text-md-text-strong"
+                "px-5 py-2.5 rounded-full text-[12px] font-bold tracking-wide transition-all min-h-[40px] whitespace-nowrap",
+                activeTab === 'audit' ? "bg-md-primary/10 text-md-primary dark:bg-md-primary dark:text-md-on-primary shadow-sm" : "text-md-text-muted hover:bg-md-surface2 hover:text-md-text-strong"
               )}
             >
               AUDIT LOG
             </button>
+            </div>
           </div>
           <div className="h-6 w-px bg-md-surface2" />
           <button 
@@ -2266,9 +2284,9 @@ except Exception as e:
 
       <PerformanceHUD stats={uePerformanceStats} />
 
-      <main className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_400px] h-[calc(100vh-73px)]">
+      <main className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 p-4 lg:p-8 h-auto lg:h-[calc(100vh-73px)]">
         {/* Main Interface */}
-        <section className="flex flex-col h-full border-r border-md-border overflow-hidden">
+        <section className="flex flex-col h-[70vh] lg:h-full bg-[var(--md-sys-color-surface-container-low)] border border-[var(--md-sys-color-outline-variant)] rounded-3xl overflow-hidden shadow-sm">
           {renderTabContent()}
 
           {/* Prompt Input */}
@@ -2347,193 +2365,218 @@ except Exception as e:
         </section>
 
         {/* Sidebar Info & History */}
-        <aside className="bg-md-surface2 p-6 flex flex-col h-full overflow-hidden">
+        <aside className="bg-[var(--md-sys-color-surface-container-low)] border border-[var(--md-sys-color-outline-variant)] rounded-3xl p-6 flex flex-col h-[600px] lg:h-full overflow-hidden shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="font-bold text-sm text-md-text-muted uppercase tracking-widest flex items-center gap-2">
-              <ChevronRight className="w-4 h-4 text-md-primary" />
+            <h2 className="font-bold text-sm text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-widest flex items-center gap-2">
+              <ChevronRight className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
               Painel de Controle
             </h2>
           </div>
 
-          <div className="space-y-6 flex-1 overflow-auto custom-scrollbar">
+          <div className="space-y-8 flex-1 overflow-auto custom-scrollbar pr-2">
             {/* Connection Card */}
-            <div className="p-4 rounded-2xl bg-md-surface1 border border-md-border space-y-4">
+            <div className="p-5 rounded-3xl bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)]/50 shadow-sm space-y-5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-md-text-muted">CONFIGURAÇÃO UE</span>
+                <span className="text-sm font-bold text-[var(--md-sys-color-on-surface)] tracking-wide">UE CONFIGURATION</span>
                 {connection.connected ? (
-                  <span className="text-[10px] text-green-400 font-bold bg-green-400/10 px-3 py-1 rounded-full">ATIVO</span>
+                  <span className="text-[11px] text-green-700 dark:text-green-400 font-bold bg-green-500/10 dark:bg-green-400/10 px-3 py-1 rounded-full shadow-sm">ACTIVE</span>
                 ) : (
-                  <span className="text-[10px] text-red-400 font-bold bg-red-400/10 px-3 py-1 rounded-full">OFFLINE</span>
+                  <span className="text-[11px] text-red-700 dark:text-red-400 font-bold bg-red-500/10 dark:bg-red-400/10 px-3 py-1 rounded-full shadow-sm">OFFLINE</span>
                 )}
               </div>
               
-              <div className="space-y-2">
-                <div className="flex flex-col gap-2">
-                  <label className="text-[10px] text-md-text-muted font-bold">HOST URL</label>
+              <div className="space-y-4">
+                <div className="flex flex-col gap-1.5 align-start">
+                  <label className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] font-bold tracking-wide pl-1">HOST URL</label>
                   <input 
                     type="text" 
                     value={connection.url}
                     onChange={(e) => setConnection(v => ({ ...v, url: e.target.value }))}
-                    className="bg-md-surface2 border border-md-border rounded px-2 py-1 text-xs focus:outline-none focus:border-md-primary" 
+                    className="w-full bg-[var(--md-sys-color-surface-container-high)] border border-[var(--md-sys-color-outline-variant)] rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:border-[var(--md-sys-color-primary)] focus:ring-1 focus:ring-[var(--md-sys-color-primary)] transition-all" 
                     placeholder="http://localhost"
                   />
                 </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-[10px] text-md-text-muted font-bold">PORTA API</label>
+                <div className="flex flex-col gap-1.5 align-start">
+                  <label className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] font-bold tracking-wide pl-1">API PORT</label>
                   <input 
                     type="text" 
                     value={connection.port}
                     onChange={(e) => setConnection(v => ({ ...v, port: e.target.value }))}
-                    className="bg-md-surface2 border border-md-border rounded px-2 py-1 text-xs focus:outline-none focus:border-md-primary" 
+                    className="w-full bg-[var(--md-sys-color-surface-container-high)] border border-[var(--md-sys-color-outline-variant)] rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:border-[var(--md-sys-color-primary)] focus:ring-1 focus:ring-[var(--md-sys-color-primary)] transition-all" 
                     placeholder="8080"
                   />
                 </div>
               </div>
 
-              <button 
+              <motion.button 
+                whileHover={{ scale: 1.02, boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}
+                whileTap={{ scale: 0.98 }}
                 onClick={handleUEConnectionTest}
-                className="w-full py-2 bg-md-surface3 hover:bg-md-border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                className="w-full py-3 bg-[var(--md-sys-color-primary)]/10 text-[var(--md-sys-color-primary)] dark:text-[var(--md-sys-color-on-primary)] dark:bg-[var(--md-sys-color-primary)] hover:bg-[var(--md-sys-color-primary)] dark:hover:bg-[var(--md-sys-color-primary-container)] hover:text-white rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-sm"
               >
-                <Activity className="w-3.5 h-3.5" />
-                Testar Conexão
-              </button>
+                <Activity className="w-4 h-4" />
+                Test Connection
+              </motion.button>
             </div>
 
             {/* Command History Quick Access */}
             {commandHistory.length > 0 && (
               <div className="space-y-3">
-                <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest pl-1">Fixados</h3>
+                <h3 className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-widest pl-1">Pinned</h3>
                 <div className="flex flex-wrap gap-2">
                   {commandHistory.filter(c => c.pinned).map((cmd) => (
-                    <button 
+                    <motion.button 
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       key={cmd.id}
                       onClick={() => setPrompt(cmd.text)}
-                      className="text-[10px] bg-md-primary text-md-on-primary hover:bg-md-primary-hover hover:text-md-on-primary px-2 py-1 rounded transition-all border border-md-primary truncate max-w-[180px] flex items-center gap-2.5"
+                      className="text-sm bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] border border-[var(--md-sys-color-outline-variant)] hover:border-[var(--md-sys-color-primary)] rounded-full px-4 py-2 min-h-[44px] transition-all truncate max-w-[200px] flex items-center gap-2 shadow-sm"
                     >
-                      <Bookmark className="w-2.5 h-2.5" fill="currentColor" />
+                      <Bookmark className="w-4 h-4 text-[var(--md-sys-color-primary)]" fill="currentColor" />
                       {cmd.text}
-                    </button>
+                    </motion.button>
                   ))}
                 </div>
               </div>
             )}
 
             {/* AI Architecture Vision */}
-            <div className="space-y-6">
+            <div className="space-y-8">
               <div className="space-y-3">
-                <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest pl-1">Ações Rápidas de Câmera</h3>
-                <div className="grid grid-cols-1 gap-2">
-                  <button 
+                <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest pl-1">Camera Actions</h3>
+                <div className="grid grid-cols-1 gap-3">
+                  <motion.button 
+                    whileHover={{ scale: 1.02, y: -2, boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => {
                         setActiveTab('cinematics');
                         addLog('ai', 'Ativando Módulo Cine Studio: Sincronizando alvo de órbita...');
-                        // Adicionamos um pequeno delay para garantir que o componente montou se for a primeira vez
                         setTimeout(() => {
                            const btn = document.getElementById('sync-focus-btn');
                            if (btn) btn.click();
                         }, 500);
                     }}
-                    className="text-left p-3 bg-indigo-500/10 rounded-xl hover:bg-indigo-500/20 border border-indigo-500/30 transition-all group"
+                    className="text-left p-4 bg-md-surface1 rounded-2xl border border-md-border hover:border-indigo-500/50 transition-colors shadow-sm group"
                   >
-                    <p className="text-[10px] font-bold text-indigo-400 mb-1">ORBIT FOCUS</p>
-                    <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Rotacionar em volta do Ator Selecionado</p>
-                  </button>
-                  <button 
+                    <p className="text-[11px] font-bold text-indigo-500 mb-1 tracking-wider">ORBIT FOCUS</p>
+                    <p className="text-sm text-md-text-muted group-hover:text-md-text-strong transition-colors">Rotate around selected actor</p>
+                  </motion.button>
+                  <motion.button 
+                    whileHover={{ scale: 1.02, y: -2, boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => setPrompt("Crie uma CineCameraActor na posição X=500, Y=0, Z=200 olhando para a origem com FOV 60")}
-                    className="text-left p-3 bg-md-surface1 rounded-xl hover:bg-md-primary-hover hover:text-md-on-primary border border-transparent hover:border-md-primary transition-all group"
+                    className="text-left p-4 bg-md-surface1 rounded-2xl border border-md-border hover:border-md-primary transition-colors shadow-sm group"
                   >
-                    <p className="text-[10px] font-bold text-md-primary mb-1">CINE CAMERA</p>
-                    <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Spawn Câmera Cinemática Configurável</p>
-                  </button>
-                  <button 
+                    <p className="text-[11px] font-bold text-md-primary mb-1 tracking-wider">CINE CAMERA</p>
+                    <p className="text-sm text-md-text-muted group-hover:text-md-text-strong transition-colors">Spawn configurable cinematic camera</p>
+                  </motion.button>
+                  <motion.button 
+                    whileHover={{ scale: 1.02, y: -2, boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => setPrompt("Mude o Field of View da câmera selecionada para 90 graus")}
-                    className="text-left p-3 bg-md-surface1 rounded-xl hover:bg-md-primary-hover hover:text-md-on-primary border border-transparent hover:border-md-primary transition-all group"
+                    className="text-left p-4 bg-md-surface1 rounded-2xl border border-md-border hover:border-md-primary transition-colors shadow-sm group"
                   >
-                    <p className="text-[10px] font-bold text-md-primary mb-1">LENS CONTROL</p>
-                    <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Ajustar Campo de Visão (FOV)</p>
-                  </button>
+                    <p className="text-[11px] font-bold text-md-primary mb-1 tracking-wider">LENS CONTROL</p>
+                    <p className="text-sm text-md-text-muted group-hover:text-md-text-strong transition-colors">Adjust Field of View (FOV)</p>
+                  </motion.button>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest pl-1">Materiais PBR</h3>
-                <div className="grid grid-cols-1 gap-2">
-                  <button 
+                <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest pl-1">PBR Materials</h3>
+                <div className="grid grid-cols-1 gap-3">
+                  <motion.button 
+                    whileHover={{ scale: 1.02, y: -2, boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={applyConcreteToSelected}
-                    className="text-left p-3 bg-amber-500/10 rounded-xl hover:bg-amber-500/20 border border-amber-500/30 transition-all group"
+                    className="text-left p-4 bg-md-surface1 rounded-2xl border border-md-border hover:border-amber-500/50 transition-colors shadow-sm group"
                   >
-                    <p className="text-[10px] font-bold text-amber-500 mb-1">INDUSTRIAL CONCRETE</p>
-                    <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Aplicar Concrete Industrial ao Selecionado</p>
-                  </button>
-                  <button 
+                    <p className="text-[11px] font-bold text-amber-500 mb-1 tracking-wider">INDUSTRIAL CONCRETE</p>
+                    <p className="text-sm text-md-text-muted group-hover:text-md-text-strong transition-colors">Apply Industrial Concrete to selection</p>
+                  </motion.button>
+                  <motion.button 
+                    whileHover={{ scale: 1.02, y: -2, boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => setPrompt("Aplique um material de Ouro Polido ao objeto selecionado (Metallic=1, Roughness=0.1, BaseColor=(1, 0.7, 0.1))")}
-                    className="text-left p-3 bg-md-surface1 rounded-xl hover:bg-md-primary-hover hover:text-md-on-primary border border-transparent hover:border-md-primary transition-all group"
+                    className="text-left p-4 bg-md-surface1 rounded-2xl border border-md-border hover:border-amber-500/50 transition-colors shadow-sm group"
                   >
-                    <p className="text-[10px] font-bold text-amber-500 mb-1">GOLD PBR</p>
-                    <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Material Metálico Dourado</p>
-                  </button>
-                  <button 
+                    <p className="text-[11px] font-bold text-amber-500 mb-1 tracking-wider">GOLD PBR</p>
+                    <p className="text-sm text-md-text-muted group-hover:text-md-text-strong transition-colors">Polished golden metallic material</p>
+                  </motion.button>
+                  <motion.button 
+                    whileHover={{ scale: 1.02, y: -2, boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => setPrompt("Faça o objeto brilhar com uma luz neon vermelha intensa (Emissive=(10, 0, 0))")}
-                    className="text-left p-3 bg-md-surface1 rounded-xl hover:bg-md-primary-hover hover:text-md-on-primary border border-transparent hover:border-md-primary transition-all group"
+                    className="text-left p-4 bg-md-surface1 rounded-2xl border border-md-border hover:border-red-500/50 transition-colors shadow-sm group"
                   >
-                    <p className="text-[10px] font-bold text-red-500 mb-1">NEON GLOW</p>
-                    <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Ajustar Emissão de Luz</p>
-                  </button>
+                    <p className="text-[11px] font-bold text-red-500 mb-1 tracking-wider">NEON GLOW</p>
+                    <p className="text-sm text-md-text-muted group-hover:text-md-text-strong transition-colors">Adjust light emission</p>
+                  </motion.button>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest pl-1">Skeletal Animations</h3>
-                <div className="grid grid-cols-1 gap-2">
-                  <button 
+                <h3 className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-widest pl-1">Skeletal Animations</h3>
+                <div className="grid grid-cols-1 gap-3">
+                  <motion.button 
+                    whileHover={{ scale: 1.02, y: -2, boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => setPrompt("Configure o SK_Mannequin para usar o asset de animação 'AS_Run_Fwd' e coloque em loop com PlayRate 1.2")}
-                    className="text-left p-3 bg-md-surface1 rounded-xl hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-all group"
+                    className="text-left p-4 bg-[var(--md-sys-color-surface-container)] rounded-3xl border border-[var(--md-sys-color-outline-variant)] hover:border-rose-500/50 transition-colors shadow-sm group"
                   >
-                    <p className="text-[10px] font-bold text-rose-500 mb-1">RUN CYCLE</p>
-                    <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Aplicar Animação de Corrida</p>
-                  </button>
-                  <button 
+                    <p className="text-[11px] font-bold text-rose-500 mb-1 tracking-wider">RUN CYCLE</p>
+                    <p className="text-sm text-[var(--md-sys-color-on-surface-variant)] group-hover:text-[var(--md-sys-color-on-surface)] transition-colors">Apply run animation</p>
+                  </motion.button>
+                  <motion.button 
+                    whileHover={{ scale: 1.02, y: -2, boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => setPrompt("Pause todas as animações do actor 'SK_Robotic_Arm' e volte para o frame inicial")}
-                    className="text-left p-3 bg-md-surface1 rounded-xl hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-all group"
+                    className="text-left p-4 bg-[var(--md-sys-color-surface-container)] rounded-3xl border border-[var(--md-sys-color-outline-variant)] hover:border-amber-500/50 transition-colors shadow-sm group"
                   >
-                    <p className="text-[10px] font-bold text-amber-500 mb-1">HALT SEQUENCE</p>
-                    <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Interromper e Resetar Reprodução</p>
-                  </button>
+                    <p className="text-[11px] font-bold text-amber-500 mb-1 tracking-wider">HALT SEQUENCE</p>
+                    <p className="text-sm text-[var(--md-sys-color-on-surface-variant)] group-hover:text-[var(--md-sys-color-on-surface)] transition-colors">Interrupt and reset playback</p>
+                  </motion.button>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest pl-1">Otimização</h3>
-                <div className="grid grid-cols-1 gap-2">
-                  <button 
+                <h3 className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-widest pl-1">Optimization</h3>
+                <div className="grid grid-cols-1 gap-3">
+                  <motion.button 
+                    whileHover={{ scale: 1.02, y: -2, boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => setPrompt("Configure 3 níveis de LOD para o mesh 'SM_Rock_01' com reduções de 100%, 50% e 25% de triângulos")}
-                    className="text-left p-3 bg-md-surface1 rounded-xl hover:bg-md-primary-hover hover:text-md-on-primary border border-transparent hover:border-md-primary transition-all group"
+                    className="text-left p-4 bg-[var(--md-sys-color-surface-container)] rounded-3xl border border-[var(--md-sys-color-outline-variant)] hover:border-emerald-500/50 transition-colors shadow-sm group"
                   >
-                    <p className="text-[10px] font-bold text-green-500 mb-1">AUTO LOD</p>
-                    <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Gerar Níveis de Detalhe</p>
-                  </button>
-                  <button 
+                    <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-500 mb-1 tracking-wider">AUTO LOD</p>
+                    <p className="text-sm text-[var(--md-sys-color-on-surface-variant)] group-hover:text-[var(--md-sys-color-on-surface)] transition-colors">Generate level of detail</p>
+                  </motion.button>
+                  <motion.button 
+                    whileHover={{ scale: 1.02, y: -2, boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => setPrompt("Aplique uma política de LOD agressiva para todos os Static Meshes na pasta /Game/Vegetation/ com base em distância do jogador")}
-                    className="text-left p-3 bg-md-surface1 rounded-xl hover:bg-amber-500/10 border border-transparent hover:border-amber-500/30 transition-all group"
+                    className="text-left p-4 bg-[var(--md-sys-color-surface-container)] rounded-3xl border border-[var(--md-sys-color-outline-variant)] hover:border-amber-500/50 transition-colors shadow-sm group"
                   >
-                    <p className="text-[10px] font-bold text-amber-500 mb-1">BATCH OPTIMIZE</p>
-                    <p className="text-xs text-md-text-muted group-hover:text-md-text-strong">Otimização em Massa de Ativos</p>
-                  </button>
+                    <p className="text-[11px] font-bold text-amber-600 dark:text-amber-500 mb-1 tracking-wider">BATCH OPTIMIZE</p>
+                    <p className="text-sm text-[var(--md-sys-color-on-surface-variant)] group-hover:text-[var(--md-sys-color-on-surface)] transition-colors">Mass asset optimization</p>
+                  </motion.button>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest pl-1">Auditoria de Sistema</h3>
-                <div className="bg-md-surface1 rounded-2xl border border-md-border p-4 space-y-4">
+                <h3 className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-widest pl-1">System Audit</h3>
+                <div className="bg-[var(--md-sys-color-surface-container)] rounded-3xl border border-[var(--md-sys-color-outline-variant)] p-5 space-y-5 shadow-sm">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-md-text-muted uppercase font-bold">Integridade</span>
-                    <span className="text-[10px] text-emerald-500 font-mono">ESTÁVEL</span>
+                    <span className="text-xs text-[var(--md-sys-color-on-surface)] uppercase font-bold tracking-wide">Integrity</span>
+                    <span className="text-xs text-emerald-600 dark:text-emerald-500 font-mono tracking-widest">STABLE</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-md-text-muted uppercase font-bold">Criptografia</span>
-                    <span className="text-[10px] text-md-primary font-mono">AES-256</span>
+                    <span className="text-xs text-[var(--md-sys-color-on-surface)] uppercase font-bold tracking-wide">Encryption</span>
+                    <span className="text-xs text-[var(--md-sys-color-primary)] font-mono tracking-widest">AES-256</span>
                   </div>
-                  <button 
+                  <motion.button 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={async () => {
                         addLog('ai', 'Iniciando auditoria real do sistema Engine...');
                         try {
@@ -2543,28 +2586,28 @@ except Exception as e:
                            addLog('error', 'Falha na auditoria de sistema', err.message);
                         }
                     }}
-                    className="w-full py-2 bg-md-primary text-md-on-primary hover:bg-md-primary-hover hover:text-md-on-primary border border-md-primary rounded-xl text-[11px] font-bold text-md-primary transition-all"
+                    className="w-full py-3 bg-[var(--md-sys-color-primary)]/10 text-[var(--md-sys-color-primary)] hover:bg-[var(--md-sys-color-primary)] hover:text-white dark:bg-[var(--md-sys-color-primary)] dark:text-[var(--md-sys-color-on-primary)] dark:hover:bg-[var(--md-sys-color-primary-container)] rounded-2xl text-[12px] uppercase tracking-wide font-bold transition-all shadow-sm"
                   >
-                    EXECUTAR VARREDURA DE SISTEMA
-                  </button>
+                    EXECUTE SYSTEM SCAN
+                  </motion.button>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-xs font-bold text-md-text-muted uppercase tracking-widest pl-1">Documentação Rápida</h3>
+                <h3 className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-widest pl-1">Quick Reference</h3>
               <div className="space-y-2">
                 {[
-                  "Ative o Plugin 'Remote Control API'",
-                  "Inicie a Unreal Engine",
-                  "Use comandos como 'Add Static Mesh'",
-                  "Configure LODs para performance",
-                  "Mude iluminação em tempo real"
+                  "Enable 'Remote Control API' Plugin",
+                  "Launch Unreal Engine",
+                  "Use commands like 'Add Static Mesh'",
+                  "Configure LODs for performance",
+                  "Modify lighting in real-time"
                 ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 bg-md-surface1 rounded-xl group hover:bg-md-surface1 transition-colors">
-                    <div className="w-5 h-5 rounded bg-md-surface2 flex items-center justify-center text-[10px] font-bold text-md-text-muted group-hover:text-md-primary">
+                  <div key={i} className="flex items-center gap-4 p-4 bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)]/30 rounded-3xl group hover:border-[var(--md-sys-color-outline)] hover:shadow-md transition-all">
+                    <div className="w-8 h-8 rounded-full bg-[var(--md-sys-color-surface-container-high)] flex items-center justify-center text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] group-hover:text-[var(--md-sys-color-primary)] group-hover:bg-[var(--md-sys-color-primary)]/10 transition-colors">
                       0{i+1}
                     </div>
-                    <span className="text-xs text-md-text-muted font-medium">{item}</span>
+                    <span className="text-sm text-[var(--md-sys-color-on-surface-variant)] font-medium flex-1 group-hover:text-[var(--md-sys-color-on-surface)] transition-colors">{item}</span>
                   </div>
                 ))}
               </div>
@@ -2572,11 +2615,15 @@ except Exception as e:
           </div>
         </div>
 
-        <div className="mt-6 pt-6 border-t border-md-border">
-            <button className="w-full py-3 text-red-500 text-xs font-bold flex items-center justify-center gap-2 hover:bg-red-500/5 rounded-xl transition-all">
+        <div className="mt-8 pt-6 border-t border-[var(--md-sys-color-outline-variant)]">
+            <motion.button 
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full py-3 text-red-600 dark:text-red-400 text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-500/10 rounded-3xl transition-all"
+            >
               <LogOut className="w-4 h-4" />
-              Encerrar Sessão Architect
-            </button>
+              Terminate Architect Session
+            </motion.button>
           </div>
         </aside>
       </main>

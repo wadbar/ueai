@@ -45,7 +45,7 @@
   color-scheme: light;
 }
 
-.dark {
+[data-theme='dark'] {
   /* Dark Theme */
   --md-sys-color-background: #141218;
   --md-sys-color-surface-container-low: #1D1B20;
@@ -66,6 +66,10 @@
   color-scheme: dark;
 }
 
+body, * {
+  transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out, border-color 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+}
+
 body {
   margin: 0;
   padding: 0;
@@ -73,7 +77,6 @@ body {
   color: var(--md-sys-color-on-surface);
   font-family: var(--font-sans);
   overflow: hidden;
-  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .custom-scrollbar::-webkit-scrollbar {

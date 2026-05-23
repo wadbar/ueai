@@ -33,6 +33,35 @@ interface PerformanceHUDProps {
 }
 
 export function PerformanceHUD({ stats }: PerformanceHUDProps) {
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const isDragging = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0, startX: 0, startY: 0 });
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
+    if ((e.target as HTMLElement).closest('button, input')) return; // Ignore if clicking a button or input
+    isDragging.current = true;
+    dragStart.current = {
+      x: e.clientX,
+      y: e.clientY,
+      startX: position.x,
+      startY: position.y
+    };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    if (!isDragging.current) return;
+    setPosition({
+      x: dragStart.current.startX + (e.clientX - dragStart.current.x),
+      y: dragStart.current.startY + (e.clientY - dragStart.current.y)
+    });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLElement>) => {
+    isDragging.current = false;
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+  };
+
   const [throttledStats, setThrottledStats] = useState(stats);
   const [opacity, setOpacity] = useState(0.8);
   const [showSettings, setShowSettings] = useState(false);
@@ -219,14 +248,16 @@ export function PerformanceHUD({ stats }: PerformanceHUDProps) {
   if (isMinimized) {
     return (
       <motion.div 
-        drag
-        dragMomentum={false}
-        dragElastic={0}
-        className="fixed top-4 right-4 sm:top-6 sm:right-6 md:top-[10vh] md:right-[4vw] z-50 pointer-events-auto"
+        className="PerformanceHUD fixed top-4 right-4 sm:top-6 sm:right-6 md:top-[10vh] md:right-[4vw] z-50 pointer-events-auto"
+        style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
       >
         <button 
           onClick={() => setIsMinimized(false)}
-          className="p-3 bg-md-surface1/80 backdrop-blur-md border border-md-border rounded-xl shadow-lg flex items-center justify-center hover:bg-md-surface2 transition-all cursor-grab active:cursor-grabbing"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          className="w-12 h-12 bg-md-surface1/80 backdrop-blur-2xl border border-md-border/50 rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.15)] flex items-center justify-center hover:bg-md-surface2 hover:scale-105 active:scale-95 transition-all cursor-grab active:cursor-grabbing"
           title="Restore Performance HUD"
         >
           <Activity className="w-5 h-5 text-md-primary" />
@@ -241,17 +272,23 @@ export function PerformanceHUD({ stats }: PerformanceHUDProps) {
         initial={{ opacity: 0, y: -20, filter: 'blur(8px)' }}
         animate={{ opacity: opacity, y: 0, filter: 'blur(0px)' }}
         exit={{ opacity: 0, y: -20, filter: 'blur(8px)' }}
-        style={{ opacity: opacity }}
+        style={{ 
+          opacity: opacity,
+          transform: `translate(${position.x}px, ${position.y}px)`
+        }}
         className={cn(
-          "fixed top-4 right-4 sm:top-6 sm:right-6 md:top-[10vh] md:right-[4vw] z-50 bg-md-surface1/80 backdrop-blur-md border p-3 sm:p-4 rounded-2xl shadow-2xl flex flex-col gap-3 w-[min(95vw,260px)] sm:w-[280px] transition-[border-color,box-shadow,opacity]",
-          isCriticalWarning ? "border-rose-500/50 shadow-[0_0_30px_rgba(244,63,94,0.3)] animate-pulse" : "border-md-border",
+          "PerformanceHUD fixed top-4 right-4 sm:top-6 sm:right-6 md:top-[10vh] md:right-[4vw] z-50 bg-md-surface1/80 backdrop-blur-2xl border p-5 rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.2)] flex flex-col gap-4 w-[min(95vw,300px)] transition-[border-color,box-shadow,opacity]",
+          isCriticalWarning ? "border-rose-500/50 shadow-[0_0_30px_rgba(244,63,94,0.3)] animate-pulse" : "border-md-border/50",
           (showSettings || isMinimized === false) ? "pointer-events-auto" : "pointer-events-none"
         )}
-        drag
-        dragMomentum={false}
-        dragElastic={0}
       >
-        <div className="flex justify-between items-center pointer-events-auto cursor-grab active:cursor-grabbing pb-1">
+        <div 
+          className="flex justify-between items-center pointer-events-auto cursor-grab active:cursor-grabbing pb-1"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+        >
           <div className="text-[10px] text-md-text-muted font-bold tracking-widest uppercase flex items-center gap-2 mb-1">
             <Activity className={cn("w-3 h-3", isCriticalWarning ? "text-rose-500" : "text-md-primary")} />
             {isCriticalWarning ? (
