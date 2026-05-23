@@ -140,14 +140,39 @@ export default function App() {
   const [currentAIResponse, setCurrentAIResponse] = useState<AIResponse | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [activeTab, setActiveTab] = useState<'console' | 'factory' | 'system' | 'streaming' | 'materials' | 'animations' | 'cinematics' | 'lod' | 'audit' | 'cognitive' | 'inspector' | 'scraper' | 'controller' | 'laboratory' | 'world' | 'dashboard'>('dashboard');
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const savedTheme = localStorage.getItem('ue_theme');
+    if (savedTheme !== null) {
+      return savedTheme === 'dark';
+    }
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
 
   useEffect(() => {
+    localStorage.setItem('ue_theme', isDarkMode ? 'dark' : 'light');
+    
+    // Dispatch custom event for same-window syncing
+    window.dispatchEvent(new Event('ue_theme_changed'));
+    
     if (isDarkMode) {
       document.documentElement.setAttribute('data-theme', 'dark');
     } else {
       document.documentElement.setAttribute('data-theme', 'light');
     }
+    
+    // Optional: add a storage listener
+    const handleStorage = () => {
+      const savedTheme = localStorage.getItem('ue_theme');
+      if (savedTheme !== null) {
+        setIsDarkMode(savedTheme === 'dark');
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('ue_theme_changed', handleStorage);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('ue_theme_changed', handleStorage);
+    };
   }, [isDarkMode]);
 
   const addLog = useCallback((type: LogEntry['type'], message: string, data?: unknown) => {
