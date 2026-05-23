@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { Actor, UEConnection } from '../types';
 
@@ -70,9 +70,11 @@ print("ACTOR_DATA_START" + json.dumps(actor_data) + "ACTOR_DATA_END")
     }
   }, [connection]);
 
-  return {
+  const result = useMemo(() => ({
     actors,
     scanScene,
     loading
-  };
+  }), [actors, scanScene, loading]);
+
+  return result;
 }

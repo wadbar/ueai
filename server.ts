@@ -54,19 +54,23 @@ async function startServer() {
       const duration = Date.now() - start;
       const logMsg = `[HTTP_AUDIT] ${req.method} ${req.url} - ${res.statusCode} - ${duration}ms`;
       
-      logger.info(logMsg);
-      io.emit("audit_log", {
-        timestamp: new Date().toISOString(),
-        level: res.statusCode >= 400 ? 'error' : (duration > 500 ? 'warn' : 'info'),
-        message: logMsg,
-        metadata: { 
-          method: req.method, 
-          url: req.url, 
-          status: res.statusCode,
-          duration,
-          userAgent: req.headers['user-agent']
-        }
-      });
+      // Omitir logs ruidosos de arquivos estáticos e HMR no desenvolvimento
+      const isStaticOrAsset = req.url.match(/\.(tsx|ts|js|jsx|css|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot)$/i) || req.url.startsWith('/@') || req.url.startsWith('/node_modules') || req.url.startsWith('/src/');
+      if (!isStaticOrAsset || res.statusCode >= 400) {
+        logger.info(logMsg);
+        io.emit("audit_log", {
+          timestamp: new Date().toISOString(),
+          level: res.statusCode >= 400 ? 'error' : (duration > 500 ? 'warn' : 'info'),
+          message: logMsg,
+          metadata: { 
+            method: req.method, 
+            url: req.url, 
+            status: res.statusCode,
+            duration,
+            userAgent: req.headers['user-agent']
+          }
+        });
+      }
     });
     next();
   });
@@ -258,14 +262,32 @@ async function startServer() {
     logger.info(`[RUNTIME_ACTIVE]: Link estabelecido em http://localhost:${PORT}`);
   });
 
-  // [GRACEFUL_SHUTDOWN]: Preservação de estado ao encerrar
-  process.on('SIGTERM', () => {
-    console.log('[SIGNAL]: SIGTERM recebido. Encerrando conexões de forma segura...');
-    server.close(() => {
-      console.log('[HALT]: Servidor encerrado.');
-      process.exit(0);
-    });
+  // [GRACEFUL_SHUTDOWN]: Preservação de estado e autocura
+  const gracefulTeardown = (signal: string) => {
+    logger.info(`[SIGNAL]: ${signal} detectado. Iniciando teardown assíncrono...`);
+    scraperWorker.stopAll();
+    setTimeout(() => {
+      server.close(() => {
+        logger.info(`[HALT]: Processo ${signal} encerrado com sucesso.`);
+        process.exit(0);
+      });
+    }, 100);
+  };
+
+  process.on('SIGTERM', () => gracefulTeardown('SIGTERM'));
+  process.on('SIGINT', () => gracefulTeardown('SIGINT'));
+
+  process.on('uncaughtException', (err: Error) => {
+    logger.error('[TELEMETRY_UNCAUGHT_EXCEPTION] Falha letal não tratada:', err);
+    gracefulTeardown('UNCAUGHT_EXCEPTION');
+  });
+
+  process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+    logger.error('[TELEMETRY_UNHANDLED_REJECTION] Promessa rejeitada:', { reason });
   });
 }
 
-startServer();
+startServer().catch((err) => {
+  console.error('[CRITICAL_INIT_FAILURE]', err);
+  process.exit(1);
+});

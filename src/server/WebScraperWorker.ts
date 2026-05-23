@@ -34,9 +34,16 @@ export class WebScraperWorker extends EventEmitter {
   private activeConnections: number = 0;
   private readonly maxConcurrent: number;
   
+  private abortController: AbortController = new AbortController();
+
   constructor(maxConcurrent: number = 10) {
     super();
     this.maxConcurrent = maxConcurrent;
+  }
+
+  public stopAll(): void {
+    this.abortController.abort();
+    this.abortController = new AbortController();
   }
 
   /**
@@ -49,6 +56,7 @@ export class WebScraperWorker extends EventEmitter {
     // Execução limitada por semáforo de concorrência global
     const workers = Array.from({ length: this.maxConcurrent }, async () => {
       while (queue.length > 0) {
+        if (this.abortController.signal.aborted) break;
         const config = queue.shift();
         if (!config) break;
         
@@ -92,7 +100,8 @@ export class WebScraperWorker extends EventEmitter {
             'User-Agent': 'Mozilla/5.0 (VLC/Kodi-Scraper-Like Architecture) Industrial/1.0',
             ...config.headers
           },
-          timeout: config.timeoutMs
+          timeout: config.timeoutMs,
+          signal: this.abortController.signal
         }, (res) => {
           let rawData = '';
           

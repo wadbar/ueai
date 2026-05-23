@@ -168,25 +168,6 @@ body {
   color: var(--md-sys-color-on-surface);
 }
 
-.m3-button-text {
-  background-color: transparent;
-  color: var(--md-sys-color-primary);
-  border-radius: 9999px;
-  padding: var(--m3-space-3) var(--m3-space-6);
-  font-weight: 500;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--m3-space-2);
-  border: none;
-  min-height: 40px;
-}
-.m3-button-text:hover {
-  background-color: var(--md-sys-color-surface-container-highest);
-  color: var(--md-sys-color-primary);
-}
-
 .m3-input {
   background-color: var(--md-sys-color-surface-container-highest);
   color: var(--md-sys-color-on-surface);
@@ -202,11 +183,6 @@ body {
   border-color: var(--md-sys-color-primary);
   border-width: 2px;
   padding: calc(var(--m3-space-3) - 1px) calc(var(--m3-space-6) - 1px);
-}
-
-/* Search bar wrapper specific fix because of icons */
-.m3-input-with-icon {
-  padding-left: 48px;
 }
 
 .custom-scrollbar::-webkit-scrollbar {

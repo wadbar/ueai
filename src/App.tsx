@@ -45,19 +45,21 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import axios from 'axios';
 import { cn } from './lib/utils';
+import { Suspense, lazy } from 'react';
 import { ScriptFactory } from './components/ScriptFactory';
 import { TelemetryView } from './components/TelemetryView';
 import { AuditTerminal } from './components/AuditTerminal';
-import { StreamingManager } from './components/StreamingManager';
-import { SceneInspector } from './components/SceneInspector';
-import { CognitiveCore } from './components/CognitiveCore';
-import { Panel } from './components/Panel';
-import { AssetScraperUI } from './components/AssetScraperUI';
-import { CinematicsManager } from './components/CinematicsManager';
-import { VirtualController } from './components/VirtualController';
-import { GeometryLab } from './components/GeometryLab';
-import { WorldSettings } from './components/WorldSettings';
-import { PerformanceHUD } from './components/PerformanceHUD';
+
+const StreamingManager = lazy(() => import('./components/StreamingManager').then(module => ({ default: module.StreamingManager })));
+const SceneInspector = lazy(() => import('./components/SceneInspector').then(module => ({ default: module.SceneInspector })));
+const CognitiveCore = lazy(() => import('./components/CognitiveCore').then(module => ({ default: module.CognitiveCore })));
+const Panel = lazy(() => import('./components/Panel').then(module => ({ default: module.Panel })));
+const AssetScraperUI = lazy(() => import('./components/AssetScraperUI').then(module => ({ default: module.AssetScraperUI })));
+const CinematicsManager = lazy(() => import('./components/CinematicsManager').then(module => ({ default: module.CinematicsManager })));
+const VirtualController = lazy(() => import('./components/VirtualController').then(module => ({ default: module.VirtualController })));
+const GeometryLab = lazy(() => import('./components/GeometryLab').then(module => ({ default: module.GeometryLab })));
+const WorldSettings = lazy(() => import('./components/WorldSettings').then(module => ({ default: module.WorldSettings })));
+const PerformanceHUD = lazy(() => import('./components/PerformanceHUD').then(module => ({ default: module.PerformanceHUD })));
 import { useUnrealEngine } from './hooks/useUnrealEngine';
 import { useSceneInspector } from './hooks/useSceneInspector';
 import { io } from 'socket.io-client';
@@ -278,7 +280,7 @@ print("ASSET_DATA_START" + json.dumps(data) + "ASSET_DATA_END")
     if (result) {
        addLog('ue', `${result.length} atores identificados.`);
        // Auto-sync assets too
-       scanProjectAssets();
+       scanProjectAssets().catch((err: any) => addLog('error', err.message || 'scanProjectAssets failed'));
     }
   }, [inspector, addLog, scanProjectAssets]);
 
@@ -552,7 +554,10 @@ print("MESH_DIAG_START" + json.dumps(data) + "MESH_DIAG_END")
        return () => { socket.disconnect(); };
     }
 
+    let isPolling = false;
     const pollTelemetry = async () => {
+      if (isPolling) return;
+      isPolling = true;
       try {
         const res = await axios.put(`${connection.url}:${connection.port}/remote/object/call`, {
           objectPath: '/Script/Engine.Default__GameplayStatics',
@@ -571,7 +576,10 @@ print("MESH_DIAG_START" + json.dumps(data) + "MESH_DIAG_END")
             setCameraPos({ x: loc.X, y: loc.Y, z: loc.Z });
           }
         }
-      } catch (e) {}
+      } catch (e) {
+      } finally {
+        isPolling = false;
+      }
     };
 
     const interval = setInterval(pollTelemetry, 1000);
@@ -585,7 +593,10 @@ print("MESH_DIAG_START" + json.dumps(data) + "MESH_DIAG_END")
   useEffect(() => {
     if (!connection.connected) return;
 
+    let isPolling = false;
     const pollSelection = async () => {
+      if (isPolling) return;
+      isPolling = true;
       try {
         const res = await axios.put(`${connection.url}:${connection.port}/remote/object/call`, {
           objectPath: '/Script/UnrealEd.Default__EditorLevelLibrary',
@@ -603,6 +614,8 @@ print("MESH_DIAG_START" + json.dumps(data) + "MESH_DIAG_END")
         }
       } catch (e) {
         // Silently fail to avoid polluting logs
+      } finally {
+        isPolling = false;
       }
     };
 
@@ -613,7 +626,10 @@ print("MESH_DIAG_START" + json.dumps(data) + "MESH_DIAG_END")
   // [PERFORMANCE_POLLING]: Polling de performance (Draw Calls e Triangles via Python Engine Hooks)
   useEffect(() => {
     if (!connection.connected) return;
+    let isPolling = false;
     const pollUEPerformance = async () => {
+      if (isPolling) return;
+      isPolling = true;
       const script = `
 import unreal
 import json
@@ -660,9 +676,20 @@ except Exception as e:
         const output = res.data?.output || "";
         const match = output.match(/UE_PERF_START(.*)UE_PERF_END/);
         if (match) {
-          setUePerformanceStats(JSON.parse(match[1]));
+          try {
+             const data = JSON.parse(match[1]);
+             // Extra safety check for HUD data integrity
+             if (typeof data.drawCalls === 'number' && typeof data.triangles === 'number') {
+               setUePerformanceStats(data);
+             }
+          } catch (parseError) {
+             console.error("UE_PERF_PARSE_ERROR:", parseError);
+          }
         }
-      } catch (e) {}
+      } catch (e) {
+      } finally {
+        isPolling = false;
+      }
     };
 
     const interval = setInterval(pollUEPerformance, 4000);
@@ -820,7 +847,11 @@ except Exception as e:
     const concreteInstance = materials.find((m) => m.id === 'M_Industrial_Concrete');
     if (concreteInstance) {
         addLog('ai', "Found 'M_Industrial_Concrete' material instance. Applying to selected actor's static mesh component...");
-        await handleApplyMaterial('M_Industrial_Concrete', concreteInstance);
+        try {
+          await handleApplyMaterial('M_Industrial_Concrete', concreteInstance);
+        } catch(err: any) {
+          addLog('error', err.message);
+        }
     } else {
         addLog('error', "M_Industrial_Concrete material instance not found.");
     }
@@ -1213,7 +1244,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
       addLog('ue', 'LINK_ESTABLISHED: Sincronização estável.');
       // Gatilho imediato de varredura real
       setTimeout(() => {
-        scanScene();
+        scanScene().catch((err: any) => addLog('error', err.message || 'scanScene failed'));
       }, 500);
     }
   };
@@ -1222,7 +1253,7 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
 
   const [viewingCode, setViewingCode] = useState<boolean>(false);
 
-  const renderTabContent = () => {
+  const renderTabContent = useMemo(() => {
     switch (activeTab) {
       case 'dashboard':
         return <Panel />;
@@ -1916,7 +1947,9 @@ configure_lods("${meshPath}", [${percents.join(',')}], [${screens.join(',')}])
                   propertyValue: val
                 });
                 // Small delay then refresh to show updated values
-                setTimeout(scanScene, 400);
+                setTimeout(() => {
+                  scanScene().catch((err: any) => addLog('error', err.message || 'scanScene failed'));
+                }, 400);
               } catch (err: any) {
                 addLog('error', `PROPERTY_UPDATE_FAILED: ${err.message}`);
               }
@@ -2034,7 +2067,7 @@ except Exception as e:
           </div>
         );
     }
-  };
+  }, [activeTab, logs, loading, connection, systemStats, systemHealth, selectedActorData, selectedActorDiagnostics, materials, cameraPos, cameras, currentFOVValue, playerLocation, inspector.actors]);
 
   return (
     <div className="min-h-screen bg-md-surface1 text-md-text font-sans selection:bg-md-primary text-md-on-primary">
@@ -2311,11 +2344,13 @@ except Exception as e:
 
       <main className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 p-4 lg:p-8 h-auto lg:h-[calc(100vh-73px)]">
         {/* Main Interface */}
-        <section className="flex flex-col h-[70vh] lg:h-full bg-[var(--md-sys-color-surface-container-low)] border border-[var(--md-sys-color-outline-variant)] rounded-3xl overflow-hidden shadow-sm">
-          {renderTabContent()}
+        <section id="ue-architect-main-interface" className="flex flex-col h-[70vh] lg:h-full bg-[var(--md-sys-color-surface-container-low)] border border-[var(--md-sys-color-outline-variant)] rounded-3xl overflow-hidden shadow-sm">
+          <Suspense fallback={<div id="ue-architect-loader" className="p-8 text-center font-mono opacity-50 text-xs">Loading UE Architect Module...</div>}>
+            {renderTabContent}
+          </Suspense>
 
           {/* Prompt Input */}
-          <div className="p-6 bg-md-surface2 border-t border-md-border relative">
+          <div id="ue-architect-prompt-container" className="p-6 bg-md-surface2 border-t border-md-border relative">
             {currentAIResponse && (
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import axios from 'axios';
 import { UECommand, UEConnection, LogEntry } from '../types';
 
@@ -212,7 +212,7 @@ unreal.AutomationLibrary.take_high_res_screenshot(${w}, ${h}, "UE_Architect_Capt
     addLog('system', `Auditoria Concluída. Score: ${Math.max(0, healthScore)}%`);
   }, [connection, addLog]);
 
-  return {
+  const result = useMemo(() => ({
     loading,
     executeCommands,
     setProperty,
@@ -223,5 +223,7 @@ unreal.AutomationLibrary.take_high_res_screenshot(${w}, ${h}, "UE_Architect_Capt
     auditSystem,
     takeHighResScreenshot,
     switchLevel
-  };
+  }), [loading, executeCommands, setProperty, callFunction, executePython, updateRealtimeActor, testConnection, auditSystem, takeHighResScreenshot, switchLevel]);
+
+  return result;
 }
