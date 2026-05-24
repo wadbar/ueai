@@ -42,13 +42,17 @@ export default defineConfig(({mode}) => {
     },
     build: {
       target: 'esnext',
-      minify: 'esbuild',
+      minify: 'esbuild', // Esbuild is faster and sufficiently optimized
       cssMinify: true,
+      reportCompressedSize: false, // Disabling this speeds up build time
+      chunkSizeWarningLimit: 2048, // Prevent annoying warnings for Three.js
       rollupOptions: {
         output: {
           manualChunks: {
             'react-vendor': ['react', 'react-dom'],
-            'ui-vendor': ['lucide-react', 'motion/react']
+            'ui-vendor': ['lucide-react', 'motion', 'motion/react'],
+            'three-vendor': ['three', '@react-three/fiber', '@react-three/drei'],
+            'utils-vendor': ['axios', 'clsx', 'tailwind-merge', 'socket.io-client']
           }
         }
       }

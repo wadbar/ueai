@@ -137,8 +137,8 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
       setAssets(updatedAssets);
     };
 
-    computeStreaming();
-  }, [playerLocation, autoStreaming, useFrustumCulling, camera]);
+    computeStreaming().catch(err => addLog('error', 'STREAMING_FAULT: Falha no computeStreaming', err?.message));
+  }, [playerLocation, autoStreaming, useFrustumCulling, camera, assets, connection]);
 
   return (
     <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-md-bg">
@@ -249,7 +249,12 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
                   {assets.map(asset => (
                     <motion.div 
                       key={asset.id}
-                      className="p-8 flex items-center justify-between group hover:bg-white/[0.02] transition-all"
+                      className="streaming-asset-card p-8 flex items-center justify-between group hover:bg-white/[0.02] transition-all"
+                      animate={{ 
+                        scale: asset.status === 'LOADED' ? 1.02 : 1,
+                        opacity: asset.status === 'LOADED' ? 1 : 0.6
+                      }}
+                      transition={{ duration: 0.3, ease: 'easeInOut' }}
                     >
                       <div className="flex items-center gap-6">
                         <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${

@@ -24,7 +24,7 @@ export const AssetScraperUI: React.FC<{ addLog: (t: any, m: string) => void }> =
   };
 
   React.useEffect(() => {
-    const interval = setInterval(fetchStatus, 2000);
+    const interval = setInterval(() => fetchStatus().catch(() => {}), 2000);
     return () => clearInterval(interval);
   }, []);
 

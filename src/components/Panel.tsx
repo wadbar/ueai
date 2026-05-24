@@ -3,21 +3,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Folder, File, Server, Moon, Sun, Search, Activity, Cpu, HardDrive, Clock, X, AlertTriangle, Code, Braces, Image as ImageIcon, Palette, Database, Globe, Terminal, ChevronUp, ChevronDown } from 'lucide-react';
 
-// --- FileManagerSection Component ---
-const initialFiles = [
-  'server.ts',
-  'package.json',
-  'api/routes.ts',
-  'config/database.yml',
-  'logs/system.log',
-  'src/index.css',
-  'src/App.tsx',
-  'assets/logo.png',
-  'public/index.html',
-  'Dockerfile'
-];
-
-const getFileIcon = (filename: string) => {
+const getFileIcon = (filename: string, isDir: boolean) => {
+  if (isDir) return <Folder className="w-4 h-4 text-blue-400" />;
   const ext = filename.split('.').pop()?.toLowerCase();
   switch (ext) {
     case 'ts':
@@ -53,9 +40,29 @@ const FileManagerSection = () => {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const listContainerRef = useRef<HTMLDivElement>(null);
   
+  // Real I/O state
+  const [realFiles, setRealFiles] = useState<{name: string, isDirectory: boolean}[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   type SortKey = 'name' | 'type';
   type SortDirection = 'asc' | 'desc';
   const [sortConfig, setSortConfig] = useState<{ key: SortKey, direction: SortDirection }>({ key: 'name', direction: 'asc' });
+
+  useEffect(() => {
+    const fetchFiles = async () => {
+      try {
+        const response = await fetch('/api/system/files');
+        if (!response.ok) throw new Error('Falha HTTP ao ler arquivos');
+        const data = await response.json();
+        setRealFiles(data);
+      } catch (err) {
+        console.error("Falha ao recuperar os arquivos do disco", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchFiles();
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem('ue_recent_searches');
@@ -72,7 +79,6 @@ const FileManagerSection = () => {
     setSelectedIndex(-1);
   }, [searchTerm, isCaseSensitive]);
 
-  // Scroll active item into view
   useEffect(() => {
     if (selectedIndex >= 0 && listContainerRef.current) {
       const children = Array.from(listContainerRef.current.children) as HTMLElement[];
@@ -99,31 +105,30 @@ const FileManagerSection = () => {
   };
 
   const filteredFiles = useMemo(() => {
-    let files = initialFiles;
+    let files = realFiles;
     if (searchTerm.trim()) {
-      files = initialFiles.filter(file => {
+      files = realFiles.filter((file) => {
         if (isCaseSensitive) {
-          return file.includes(searchTerm);
+          return file.name.includes(searchTerm);
         }
-        return file.toLowerCase().includes(searchTerm.toLowerCase());
+        return file.name.toLowerCase().includes(searchTerm.toLowerCase());
       });
     }
 
     return [...files].sort((a, b) => {
-      let aValue = a.toLowerCase();
-      let bValue = b.toLowerCase();
+      let aValue = a.name.toLowerCase();
+      let bValue = b.name.toLowerCase();
       if (sortConfig.key === 'type') {
-        aValue = a.split('.').pop()?.toLowerCase() || '';
-        bValue = b.split('.').pop()?.toLowerCase() || '';
+        aValue = a.isDirectory ? '000_folder' : (a.name.split('.').pop()?.toLowerCase() || '');
+        bValue = b.isDirectory ? '000_folder' : (b.name.split('.').pop()?.toLowerCase() || '');
       }
       const compare = aValue.localeCompare(bValue);
       return sortConfig.direction === 'asc' ? compare : -compare;
     });
-  }, [searchTerm, isCaseSensitive, sortConfig]);
+  }, [searchTerm, isCaseSensitive, sortConfig, realFiles]);
 
   const highlightMatch = (text: string) => {
     if (!searchTerm.trim()) return text;
-    // Escape searchTerm for regex safety
     const safeTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const flags = isCaseSensitive ? 'g' : 'gi';
     const regex = new RegExp(`(${safeTerm})`, flags);
@@ -154,11 +159,11 @@ const FileManagerSection = () => {
   };
 
   return (
-    <div className="m3-card h-full">
+    <div className="m3-card h-full relative">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-[var(--md-sys-color-primary)]">
-          <Folder className="w-5 h-5" />
-          <h3 className="font-bold text-lg text-[var(--md-sys-color-on-surface)]">File Manager</h3>
+        <div className="flex items-center gap-2 text-[var(--md-sys-color-on-surface)]">
+          <Folder className="w-5 h-5 text-[var(--md-sys-color-primary)]" />
+          <h3 className="font-bold text-lg text-[var(--md-sys-color-on-surface)]">File Manager Real-Time</h3>
         </div>
       </div>
       
@@ -166,7 +171,7 @@ const FileManagerSection = () => {
         <div className="relative flex-1">
           <input
             type="text"
-            placeholder="Filter files..."
+            placeholder="Filter files on disk..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             onKeyDown={(e) => {
@@ -229,7 +234,7 @@ const FileManagerSection = () => {
       {/* File List Header */}
       <div className="flex items-center px-4 py-2 bg-[var(--md-sys-color-surface-container-high)] rounded-xl border border-[var(--md-sys-color-outline-variant)]">
         <button 
-          className="m3-button-tonal flex-1 justify-between"
+          className="m3-button-tonal flex-1 justify-between shadow-none border-none bg-transparent"
           onClick={() => handleSort('name')}
         >
           File Name
@@ -238,7 +243,7 @@ const FileManagerSection = () => {
           )}
         </button>
         <button 
-          className="m3-button-tonal"
+          className="m3-button-tonal shadow-none border-none bg-transparent"
           onClick={() => handleSort('type')}
         >
           Type
@@ -248,11 +253,16 @@ const FileManagerSection = () => {
         </button>
       </div>
 
-      <div ref={listContainerRef} className="flex-1 overflow-y-auto custom-scrollbar space-y-2">
+      <div ref={listContainerRef} className="flex-1 overflow-y-auto custom-scrollbar space-y-2 relative">
+        {isLoading && (
+          <div className="absolute inset-0 z-10 bg-[var(--md-sys-color-surface-container)] flex items-center justify-center">
+            <div className="animate-spin-slow rounded-full h-8 w-8 border-b-2 border-[var(--md-sys-color-primary)]"></div>
+          </div>
+        )}
         <AnimatePresence>
-          {filteredFiles.map((file, idx) => (
+          {filteredFiles.map((fileInfo, idx) => (
             <motion.div
-              key={file}
+              key={fileInfo.name}
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -5 }}
@@ -264,18 +274,18 @@ const FileManagerSection = () => {
               }`}
               onMouseEnter={() => setSelectedIndex(idx)}
             >
-              <div className="flex-1 flex items-center gap-4">
-                {getFileIcon(file)}
-                <span className="text-sm text-[var(--md-sys-color-on-surface)] font-mono">
-                  {highlightMatch(file)}
+              <div className="flex-1 flex items-center gap-4 text-[var(--md-sys-color-on-surface)]">
+                {getFileIcon(fileInfo.name, fileInfo.isDirectory)}
+                <span className="text-sm font-mono break-all">
+                  {highlightMatch(fileInfo.name)}
                 </span>
               </div>
               <span className="text-xs text-[var(--md-sys-color-on-surface-variant)] uppercase font-bold w-24 text-right">
-                {file.split('.').length > 1 ? file.split('.').pop() : 'FILE'}
+                {fileInfo.isDirectory ? 'DIR' : (fileInfo.name.split('.').length > 1 ? fileInfo.name.split('.').pop() : 'FILE')}
               </span>
             </motion.div>
           ))}
-          {filteredFiles.length === 0 && (
+          {!isLoading && filteredFiles.length === 0 && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -299,51 +309,60 @@ const MonitoringWidget = () => {
   const consecutiveHighTicks = React.useRef({ cpu: 0, memory: 0 });
 
   useEffect(() => {
-    // Fill initial data
-    const now = new Date();
-    const initialData = Array.from({ length: 20 }).map((_, i) => {
-      const t = new Date(now.getTime() - (20 - i) * 1000);
-      return {
-        time: `${t.getSeconds()}s`,
-        cpu: 10 + Math.random() * 20,
-        memory: 40 + Math.random() * 10
-      };
-    });
+    let isMounted = true;
+    
+    // Fill local buffers to initialize line charts seamlessly
+    const initialData = Array.from({ length: 20 }).map(() => ({ time: '', cpu: 0, memory: 0 }));
     setData(initialData);
 
-    const interval = setInterval(() => {
-      setData(prevData => {
-        const newData = [...prevData.slice(1)];
-        const currentT = new Date();
-        const nextCpu = Math.max(0, Math.min(100, (newData[newData.length - 1]?.cpu || 30) + (Math.random() * 20 - 10)));
-        const nextMem = Math.max(0, Math.min(100, (newData[newData.length - 1]?.memory || 50) + (Math.random() * 10 - 5)));
+    const pullMetrics = async () => {
+      try {
+        const res = await fetch('/api/system/resources');
+        if (!res.ok) throw new Error('OS_PROBE_FAILED');
+        const metrics = await res.json();
         
-        newData.push({
-          time: `${currentT.getSeconds()}s`,
-          cpu: nextCpu,
-          memory: nextMem
-        });
+        if (isMounted) {
+          setData(prevData => {
+            const newData = [...prevData.slice(1)];
+            const t = new Date();
+            
+            const cpuVal = metrics.cpu || 0;
+            const memVal = metrics.memory || 0;
+            
+            newData.push({
+              time: `${t.getSeconds()}s`,
+              cpu: cpuVal,
+              memory: memVal
+            });
 
-        // Threshold logic (5 minutes = 300 seconds)
-        if (nextCpu > 85) consecutiveHighTicks.current.cpu += 1;
-        else consecutiveHighTicks.current.cpu = 0;
+            if (cpuVal > 85) consecutiveHighTicks.current.cpu += 1;
+            else consecutiveHighTicks.current.cpu = 0;
 
-        if (nextMem > 85) consecutiveHighTicks.current.memory += 1;
-        else consecutiveHighTicks.current.memory = 0;
+            if (memVal > 85) consecutiveHighTicks.current.memory += 1;
+            else consecutiveHighTicks.current.memory = 0;
 
-        if (consecutiveHighTicks.current.cpu >= 300) {
-          setAlertState({ active: true, message: 'CRITICAL: CPU usage exceeded 85% for over 5 minutes.' });
-        } else if (consecutiveHighTicks.current.memory >= 300) {
-          setAlertState({ active: true, message: 'CRITICAL: Memory usage exceeded 85% for over 5 minutes.' });
-        } else if (consecutiveHighTicks.current.cpu < 300 && consecutiveHighTicks.current.memory < 300) {
-          setAlertState(prev => prev.active ? { active: false, message: '' } : prev);
+            if (consecutiveHighTicks.current.cpu >= 300) {
+              setAlertState({ active: true, message: 'CRITICAL: CPU usage exceeded 85% for over 5 minutes.' });
+            } else if (consecutiveHighTicks.current.memory >= 300) {
+              setAlertState({ active: true, message: 'CRITICAL: Memory usage exceeded 85% for over 5 minutes.' });
+            } else if (consecutiveHighTicks.current.cpu < 300 && consecutiveHighTicks.current.memory < 300) {
+              setAlertState(prev => prev.active ? { active: false, message: '' } : prev);
+            }
+
+            return newData;
+          });
         }
+      } catch (err) {
+        // Silent recovery
+      }
+    };
 
-        return newData;
-      });
-    }, 1000);
+    const interval = setInterval(() => pullMetrics().catch(() => {}), 1500);
 
-    return () => clearInterval(interval);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   return (
@@ -366,7 +385,7 @@ const MonitoringWidget = () => {
             <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
               <div className="flex-1">
-                <h4 className="text-sm font-bold text-red-500 uppercase tracking-widest mb-1">System Alert</h4>
+                <h4 className="text-sm font-bold text-[var(--md-sys-color-on-surface)] uppercase tracking-widest mb-1">System Alert</h4>
                 <p className="text-sm text-[var(--md-sys-color-on-surface)]">{alertState.message}</p>
               </div>
               <button 
@@ -384,19 +403,19 @@ const MonitoringWidget = () => {
         <div className="bg-[var(--md-sys-color-surface-container-high)] p-4 rounded-2xl border border-[var(--md-sys-color-outline-variant)] flex flex-col">
           <div className="flex items-center gap-2 text-[var(--md-sys-color-on-surface-variant)] text-xs font-bold uppercase tracking-wider mb-2">
             <Cpu className="w-3.5 h-3.5" />
-            CPU Load
+            CPU Load (Real-Time)
           </div>
-          <div className="text-2xl font-black text-[var(--md-sys-color-primary)]">
-            {data.length > 0 ? data[data.length - 1].cpu.toFixed(1) : 0}%
+          <div className="text-2xl font-black text-[var(--md-sys-color-on-surface)]">
+            {data.length > 0 ? (data[data.length - 1].cpu || 0).toFixed(1) : 0}%
           </div>
         </div>
         <div className="bg-[var(--md-sys-color-surface-container-high)] p-4 rounded-2xl border border-[var(--md-sys-color-outline-variant)] flex flex-col">
           <div className="flex items-center gap-2 text-[var(--md-sys-color-on-surface-variant)] text-xs font-bold uppercase tracking-wider mb-2">
             <HardDrive className="w-3.5 h-3.5" />
-            Memory Usage
+            RAM Usage (Real-Time)
           </div>
-          <div className="text-2xl font-black text-[var(--md-sys-color-primary-container)] brightness-150">
-            {data.length > 0 ? data[data.length - 1].memory.toFixed(1) : 0}%
+          <div className="text-2xl font-black text-[var(--md-sys-color-on-surface)]">
+            {data.length > 0 ? (data[data.length - 1].memory || 0).toFixed(1) : 0}%
           </div>
         </div>
       </div>
@@ -465,7 +484,7 @@ export const Panel = () => {
       <div className="max-w-7xl mx-auto flex items-center justify-between mb-8">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-[var(--md-sys-color-on-surface)]">Dashboard Panel</h2>
-          <p className="text-sm text-[var(--md-sys-color-on-surface-variant)] mt-1">System overview and control center</p>
+          <p className="text-sm text-[var(--md-sys-color-on-surface-variant)] mt-1">System overview and remote Node telemetry</p>
         </div>
         <div className="flex items-center gap-4">
           <motion.button
@@ -510,12 +529,12 @@ export const Panel = () => {
                 className="overflow-hidden"
               >
                 <div className="m3-card">
-                  <div className="flex items-center gap-2 text-[var(--md-sys-color-secondary)]">
-                    <Server className="w-5 h-5" />
+                  <div className="flex items-center gap-2 text-[var(--md-sys-color-on-surface-variant)]">
+                    <Server className="w-5 h-5 text-[var(--md-sys-color-primary)]" />
                     <h3 className="font-bold text-lg text-[var(--md-sys-color-on-surface)]">Server Panel</h3>
                   </div>
                   <p className="text-sm text-[var(--md-sys-color-on-surface-variant)]">
-                    Connected to regional edge node. All systems are operating normally.
+                    Connected to regional edge node. OS Telemetry and File I/O active.
                   </p>
                   <div className="flex items-center gap-3">
                     <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" />

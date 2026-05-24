@@ -202,7 +202,7 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
 
   useEffect(() => {
     if (orbitConfig.autoUpdate) {
-      const timeout = setTimeout(applyOrbit, 100);
+      const timeout = setTimeout(() => applyOrbit().catch(() => {}), 100);
       return () => clearTimeout(timeout);
     }
   }, [orbitConfig.distance, orbitConfig.pitch, orbitConfig.yaw, orbitConfig.autoUpdate]);

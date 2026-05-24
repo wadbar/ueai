@@ -412,7 +412,7 @@ print("ASSET_DATA_START" + json.dumps(data) + "ASSET_DATA_END")
         addLog('ai', 'Automação concluída: Configurações de Orbit (D:800, P:-30, Y:45) prontas no CineCameraManager.');
       };
 
-      runAutomation();
+      runAutomation().catch((err) => console.error("runAutomation fall:", err));
     }
   }, [connection.connected, selectedActorData, selectedActorMeshPath, materials]);
 
@@ -452,7 +452,7 @@ print("ASSET_DATA_START" + json.dumps(data) + "ASSET_DATA_END")
       }
     };
 
-    fetchMeshPath();
+    fetchMeshPath().catch((err) => console.error("fetchMeshPath fall:", err));
   }, [selectedActorData?.path, connection.connected, connection.url, connection.port]);
   const [selectedActorDiagnostics, setSelectedActorDiagnostics] = useState<MeshDiagnostics | null>(null);
 
@@ -480,7 +480,7 @@ print("ASSET_DATA_START" + json.dumps(data) + "ASSET_DATA_END")
           setSelectedActorMeshPath(null);
         }
       };
-      fetchMesh();
+      fetchMesh().catch((err) => console.error("fetchMesh fall:", err));
     } else {
       setSelectedActorMeshPath(null);
     }
@@ -537,7 +537,7 @@ print("MESH_DIAG_START" + json.dumps(data) + "MESH_DIAG_END")
           setSelectedActorDiagnostics(null);
         }
       };
-      fetchDiagnostics();
+      fetchDiagnostics().catch((err) => console.error("fetchDiagnostics fall:", err));
     } else {
       setSelectedActorDiagnostics(null);
     }
@@ -582,7 +582,7 @@ print("MESH_DIAG_START" + json.dumps(data) + "MESH_DIAG_END")
       }
     };
 
-    const interval = setInterval(pollTelemetry, 1000);
+    const interval = setInterval(() => pollTelemetry().catch(() => {}), 1000);
     return () => {
       clearInterval(interval);
       socket.disconnect();
@@ -619,7 +619,7 @@ print("MESH_DIAG_START" + json.dumps(data) + "MESH_DIAG_END")
       }
     };
 
-    const interval = setInterval(pollSelection, 2000);
+    const interval = setInterval(() => pollSelection().catch(() => {}), 2000);
     return () => clearInterval(interval);
   }, [connection.connected, connection.url, connection.port, selectedActorData?.path]);
 
@@ -692,7 +692,7 @@ except Exception as e:
       }
     };
 
-    const interval = setInterval(pollUEPerformance, 4000);
+    const interval = setInterval(() => pollUEPerformance().catch(() => {}), 4000);
     return () => clearInterval(interval);
   }, [connection.connected, connection.url, connection.port]);
 
@@ -777,8 +777,8 @@ except Exception as e:
       }
     };
 
-    checkHealth();
-    const interval = setInterval(checkHealth, 30000);
+    checkHealth().catch(() => {});
+    const interval = setInterval(() => checkHealth().catch(() => {}), 30000);
 
     addLog('ai', 'SYSTEM_CORE_ACTIVE: Camadas de otimização injetadas. Ambiente estável.');
 

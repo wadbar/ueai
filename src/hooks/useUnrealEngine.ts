@@ -124,36 +124,38 @@ unreal.AutomationLibrary.take_high_res_screenshot(${w}, ${h}, "UE_Architect_Capt
     batchQueueRef.current.set(path, { pos, rot });
 
     if (!batchTimeoutRef.current) {
-      batchTimeoutRef.current = setTimeout(async () => {
-        const entries = Array.from(batchQueueRef.current.entries());
-        batchQueueRef.current.clear();
-        batchTimeoutRef.current = null;
+      batchTimeoutRef.current = setTimeout(() => {
+        (async () => {
+          const entries = Array.from(batchQueueRef.current.entries());
+          batchQueueRef.current.clear();
+          batchTimeoutRef.current = null;
 
-        if (entries.length === 0) return;
+          if (entries.length === 0) return;
 
-        try {
-          const requests = entries.map(([actorPath, data], index) => ({
-            RequestId: index + 1,
-            URL: '/remote/object/call',
-            Verb: 'PUT',
-            Body: {
-              objectPath: actorPath,
-              functionName: 'SetActorLocationAndRotation',
-              parameters: {
-                NewLocation: data.pos,
-                NewRotation: data.rot,
-                bSweep: false,
-                bTeleport: true
+          try {
+            const requests = entries.map(([actorPath, data], index) => ({
+              RequestId: index + 1,
+              URL: '/remote/object/call',
+              Verb: 'PUT',
+              Body: {
+                objectPath: actorPath,
+                functionName: 'SetActorLocationAndRotation',
+                parameters: {
+                  NewLocation: data.pos,
+                  NewRotation: data.rot,
+                  bSweep: false,
+                  bTeleport: true
+                }
               }
-            }
-          }));
+            }));
 
-          await axios.put(`${connection.url}:${connection.port}/remote/batch`, {
-            Requests: requests
-          });
-        } catch (err) {
-          // High-frequency silence
-        }
+            await axios.put(`${connection.url}:${connection.port}/remote/batch`, {
+              Requests: requests
+            });
+          } catch (err) {
+            // High-frequency silence
+          }
+        })().catch(() => {});
       }, 33); // ~30 FPS throttle
     }
   }, [connection]);

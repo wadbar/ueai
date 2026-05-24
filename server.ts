@@ -10,6 +10,8 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import logger from "./src/lib/logger";
 
+import fs from "fs/promises";
+import os from "os";
 import { WebScraperWorker } from "./src/server/WebScraperWorker";
 import { ai, withAIRetry, ARCHITECT_CORE_INSTRUCTION } from "./src/server/aiHelper";
 
@@ -39,12 +41,25 @@ async function startServer() {
 
   const PORT = 3000;
 
-  // [V9_CHROMIUM_OPTIMIZATION]: Camada de compressão e blindagem
-  app.use(compression());
+  // [V9_CHROMIUM_OPTIMIZATION]: Camada de compressão suprema e blindagem
+  app.use(compression({
+    level: 9, // Extreme compression for static assets text
+    threshold: 1024,
+    filter: (req, res) => {
+      if (req.headers['x-no-compression']) return false;
+      return compression.filter(req, res);
+    }
+  }));
+  
   app.use(helmet({
     contentSecurityPolicy: false,
+    dnsPrefetchControl: { allow: true },
+    frameguard: { action: 'sameorigin' },
+    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true }
   }));
-  app.use(express.json());
+  app.use(express.json({ limit: '10mb' })); // Increased limit for massive blueprint payloads
+  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
   app.use("/api/", limiter);
 
   // [ARCHITECT_TELEMETRY]: Middleware de auditoria de requisições via Winston
@@ -142,6 +157,67 @@ async function startServer() {
     });
   });
 
+  // [REAL I/O FILES]: Ler a estrutura de arquivos da workspace
+  app.get("/api/system/files", async (req, res) => {
+    try {
+      const rootDir = process.cwd();
+      const items = await fs.readdir(rootDir, { withFileTypes: true });
+      // Remove node_modules e dist por questões de clean up
+      const filtered = items.filter(i => 
+        !i.name.includes("node_modules") && 
+        !i.name.includes(".git") && 
+        !i.name.includes(".next") && 
+        !i.name.includes("dist")
+      );
+      
+      const files = filtered.map(i => ({
+        name: i.name,
+        isDirectory: i.isDirectory(),
+      }));
+
+      // Extra logic: se achar pasta 'src', list de forma shallow
+      try {
+         const srcItems = await fs.readdir(path.join(rootDir, 'src'), { withFileTypes: true });
+         const inner = srcItems.map(i => ({ name: 'src/' + i.name, isDirectory: i.isDirectory() }));
+         files.push(...inner);
+      } catch (e) {}
+
+      res.json(files);
+    } catch (e: any) {
+      res.status(500).json({ error: "FILE_READ_ERROR", message: e.message });
+    }
+  });
+
+  // [REAL OS RESOUCES]: Métricas baseadas na CPU e Memória
+  app.get("/api/system/resources", (req, res) => {
+    try {
+      const totalMem = os.totalmem();
+      const freeMem = os.freemem();
+      const usedMem = totalMem - freeMem;
+      const memPerc = totalMem ? (usedMem / totalMem) * 100 : 0;
+      
+      const cpus = os.cpus();
+      let totalIdle = 0;
+      let totalTick = 0;
+      cpus.forEach(core => {
+        for (const type in core.times) {
+          totalTick += core.times[type as keyof typeof core.times];
+        }
+        totalIdle += core.times.idle;
+      });
+      const idle = totalTick > 0 ? (totalIdle / totalTick) * 100 : 0;
+      const cpuPerc = 100 - idle;
+
+      res.json({ 
+        cpu: cpuPerc, 
+        memory: memPerc,
+        timestamp: Date.now()
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: "OS_RESOURCE_ERROR", message: error.message });
+    }
+  });
+
   // [V9_ENVIRONMENT_CHECK]: Verifica configuração de variáveis
   app.get("/api/system/env", (req, res) => {
     res.json({
@@ -169,15 +245,18 @@ async function startServer() {
         INPUT_USUARIO: ${prompt}
       `;
 
+      // Utilize caching with extreme performance for identical exact prompts and context (using base64 or basic string crypto for key)
+      const cacheKey = Buffer.from(promptContext).toString('base64').substring(0, 256); // simple deterministic key
+
       const response = await withAIRetry(() => ai.models.generateContent({
         model: getModelForEnvironment(),
         contents: promptContext,
         config: {
           responseMimeType: "application/json",
-          temperature: 0.05,
-          topP: 0.99
+          temperature: 0.01, // extremely deterministic logic
+          topP: 0.95
         }
-      }));
+      }), cacheKey, 120000); // 2 minutes cache TTL
 
       const responseText = response.text || "";
       if (!responseText) throw new Error("RESPOSTA_NEURAL_VAZIA");
@@ -261,6 +340,10 @@ async function startServer() {
   const server = httpServer.listen(PORT, "0.0.0.0", () => {
     logger.info(`[RUNTIME_ACTIVE]: Link estabelecido em http://localhost:${PORT}`);
   });
+
+  // [EXTREME_OPTIMIZATION]: Keep-Alive Timeout settings
+  server.keepAliveTimeout = 61000;
+  server.headersTimeout = 65000; // should be > keepAliveTimeout
 
   // [GRACEFUL_SHUTDOWN]: Preservação de estado e autocura
   const gracefulTeardown = (signal: string) => {

@@ -13,6 +13,7 @@ interface ScrapeConfig {
   timeoutMs: number;
   retries: number;
   headers?: Record<string, string>;
+  maxDataSize?: number; // Protection against memory leaks
 }
 
 /**
@@ -25,6 +26,21 @@ interface ScrapeResult {
   latencyMs: number;
   error?: string;
 }
+
+// Reusable Keep-Alive Agents for Extreme Networking Performance
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 100, // High throughput
+  maxFreeSockets: 20,
+  timeout: 30000, 
+});
+
+const httpAgent = new http.Agent({
+  keepAlive: true,
+  maxSockets: 100,
+  maxFreeSockets: 20,
+  timeout: 30000, 
+});
 
 /**
  * Scraper Worker Server-Side (Inspired by Chromium Network Stack & Kodi Scrapers)
@@ -88,25 +104,43 @@ export class WebScraperWorker extends EventEmitter {
    */
   private async scrapeWithRetry(config: ScrapeConfig, attempt: number = 1): Promise<ScrapeResult> {
     const start = Date.now();
+    const maxSize = config.maxDataSize || 5 * 1024 * 1024; // 5MB limit by default
     
     try {
       return await new Promise<ScrapeResult>((resolve, reject) => {
         const urlObj = new URL(config.url);
-        const protocol = urlObj.protocol === 'https:' ? https : http;
+        const isHttps = urlObj.protocol === 'https:';
+        const protocol = isHttps ? https : http;
         
         const req = protocol.request(config.url, {
           method: 'GET',
+          agent: isHttps ? httpsAgent : httpAgent, // Apply Keep-Alive optimization
           headers: {
             'User-Agent': 'Mozilla/5.0 (VLC/Kodi-Scraper-Like Architecture) Industrial/1.0',
+            'Accept-Encoding': 'gzip, deflate, br', // Hint for compression processing
             ...config.headers
           },
           timeout: config.timeoutMs,
           signal: this.abortController.signal
         }, (res) => {
+          // Graceful handling of possible redirect loops (to be completely flawless we'd catch 301/302, but basic is fine here)
+          if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+             req.destroy();
+             return resolve(this.scrapeWithRetry({...config, url: res.headers.location as string}, attempt));
+          }
+
           let rawData = '';
+          let dataSize = 0;
           
           res.setEncoding('utf8');
-          res.on('data', (chunk) => { rawData += chunk; });
+          res.on('data', (chunk) => { 
+            dataSize += Buffer.byteLength(chunk, 'utf8');
+            if (dataSize > maxSize) {
+               req.destroy();
+               return reject(new Error('MAX_DATA_SIZE_EXCEEDED (Memory Protection Active)'));
+            }
+            rawData += chunk; 
+          });
           res.on('end', () => {
             resolve({
               url: config.url,
@@ -132,8 +166,10 @@ export class WebScraperWorker extends EventEmitter {
       
     } catch (error: any) {
       if (attempt < config.retries) {
-        // Backoff exponencial blindado
-        await new Promise(r => setTimeout(r, Math.random() * 1000 * attempt));
+        // Backoff exponencial blindado com Jitter (Para não afogar o servidor alvo)
+        const jitter = Math.random() * 500;
+        const delay = (Math.pow(2, attempt) * 500) + jitter;
+        await new Promise(r => setTimeout(r, delay));
         return this.scrapeWithRetry(config, attempt + 1);
       }
       throw error;
