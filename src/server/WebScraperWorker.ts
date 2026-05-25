@@ -180,3 +180,5 @@ export class WebScraperWorker extends EventEmitter {
     return this.activeConnections;
   }
 }
+
+export const scraperWorker = new WebScraperWorker(10);

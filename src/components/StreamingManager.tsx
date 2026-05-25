@@ -67,7 +67,7 @@ export const StreamingManager: React.FC<StreamingManagerProps> = ({
 
       addLog('ue', `[STREAM_COMMAND]: ${shouldLoad ? 'LOADING' : 'UNLOADING'} -> ${asset.id} (Dist: ${Math.round(asset.distance || 0)}u)`);
     } catch (err: any) {
-      addLog('error', `STREAM_FAULT: Falha ao transmitir estado para ${asset.id}`, err.message);
+      addLog('error', `STREAM_FAULT: Falha ao transmitir estado para ${asset.id}`, err?.message || err);
     }
   };
 

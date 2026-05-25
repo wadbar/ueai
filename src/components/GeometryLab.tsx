@@ -39,7 +39,7 @@ export const GeometryLab: React.FC<GeometryLabProps> = ({ activeActor, diagnosti
       }
       addPipelineLog("Recalibragem de vértices concluída com sucesso.");
     } catch (error: any) {
-      addPipelineLog(`ERRO (UNCAUGHT_EXCEPTION): ${error.message || 'Falha na conexão'}`);
+      addPipelineLog(`ERRO (UNCAUGHT_EXCEPTION): ${error?.message || 'Falha na conexão'}`);
     } finally {
       setPipelineStatus('IDLE');
     }
@@ -51,13 +51,17 @@ export const GeometryLab: React.FC<GeometryLabProps> = ({ activeActor, diagnosti
     setPipelineStatus('PROCESSING');
     addPipelineLog(`Calculando Convex Hull para o colisor do ator: ${activeActor.name}...`);
     
-    setTimeout(() => {
+    try {
+      await Promise.resolve();
       addPipelineLog("Convex Hull simplificado. Redução estimada: 74% dos polígonos de colisão.");
-      setPipelineStatus('IDLE');
       if (onRefreshDiagnostics) {
-        onRefreshDiagnostics().catch(() => {});
+        await onRefreshDiagnostics();
       }
-    }, 1500);
+    } catch (err: any) {
+      addPipelineLog(`ERRO (UNCAUGHT_EXCEPTION): ${err?.message || 'Falha de processamento'}`);
+    } finally {
+      setPipelineStatus('IDLE');
+    }
   };
 
   const triangleCount = diagnostics?.triangleCount || 0;

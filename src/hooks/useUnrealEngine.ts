@@ -39,7 +39,7 @@ export function useUnrealEngine(connection: UEConnection, addLog: (type: LogEntr
       }
       addLog('success', 'BATCH_EXECUTION_COMPLETE');
     } catch (err: any) {
-      addLog('error', `ABORT_SEQUENCE_CRITICAL: ${err.message}`);
+      addLog('error', `ABORT_SEQUENCE_CRITICAL: ${err?.message || err}`);
     } finally {
       setLoading(false);
     }
@@ -54,7 +54,7 @@ export function useUnrealEngine(connection: UEConnection, addLog: (type: LogEntr
       });
       return true;
     } catch (err: any) {
-      addLog('error', `PROPERTY_FAULT: ${propertyName} em ${objectPath} - ${err.message}`);
+      addLog('error', `PROPERTY_FAULT: ${propertyName} em ${objectPath} - ${err?.message || err}`);
       return false;
     }
   }, [connection, addLog]);
@@ -68,7 +68,7 @@ export function useUnrealEngine(connection: UEConnection, addLog: (type: LogEntr
       });
       return response.data;
     } catch (err: any) {
-      addLog('error', `CALL_FAULT: ${functionName} em ${objectPath} - ${err.message}`);
+      addLog('error', `CALL_FAULT: ${functionName} em ${objectPath} - ${err?.message || err}`);
       return null;
     }
   }, [connection, addLog]);
@@ -82,7 +82,7 @@ export function useUnrealEngine(connection: UEConnection, addLog: (type: LogEntr
       addLog('success', 'PYTHON_EXEC_OK');
       return true;
     } catch (err: any) {
-      addLog('error', `PYTHON_FAULT: ${err.message}`);
+      addLog('error', `PYTHON_FAULT: ${err?.message || err}`);
       return false;
     }
   }, [connection, addLog]);
@@ -112,7 +112,7 @@ unreal.AutomationLibrary.take_high_res_screenshot(${w}, ${h}, "UE_Architect_Capt
       addLog('success', 'LEVEL_TRANSITION_QUEUED');
       return true;
     } catch (err: any) {
-      addLog('error', `LEVEL_FAULT: ${err.message}`);
+      addLog('error', `LEVEL_FAULT: ${err?.message || err}`);
       return false;
     }
   }, [connection, addLog]);

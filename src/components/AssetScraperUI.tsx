@@ -45,7 +45,7 @@ export const AssetScraperUI: React.FC<{ addLog: (t: any, m: string) => void }> =
       setResults(prev => [...res.data.data, ...prev]);
       addLog('ai', `[DATA_MINER]: Extração concluída com sucesso. Operação resolvida em ${res.data.data[0]?.latencyMs}ms`);
     } catch (err: any) {
-      addLog('error', `[MINER_FAULT]: Falha durante a extração: ${err.message}`);
+      addLog('error', `[MINER_FAULT]: Falha durante a extração: ${err?.message || err}`);
     } finally {
       setIsScraping(false);
       setTargetUrl('');

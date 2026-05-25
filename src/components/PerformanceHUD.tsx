@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Activity, Settings2, Minimize2, Maximize2, AlertTriangle, Pause, Play, Download } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Activity, Settings2, Minimize2, Maximize2, AlertTriangle, Pause, Play, Download, X, Terminal as TerminalIcon, ShieldAlert } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'motion/react';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
+import { io } from 'socket.io-client';
+import { LogEntry } from '../types';
 
 function AnimatedNumber({ value, formatFn }: { value: number; formatFn?: (v: number) => string }) {
   const motionValue = useMotionValue(value);
@@ -30,12 +32,27 @@ interface PerformanceHUDProps {
       isCamera: boolean;
     } | null
   } | null;
+  logs?: LogEntry[];
+  lastHeartbeat?: number;
 }
 
-export function PerformanceHUD({ stats }: PerformanceHUDProps) {
+export function PerformanceHUD({ stats, logs = [], lastHeartbeat }: PerformanceHUDProps) {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const isDragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0, startX: 0, startY: 0 });
+
+  const [heartbeatAge, setHeartbeatAge] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (lastHeartbeat) {
+        setHeartbeatAge(Date.now() - lastHeartbeat);
+      }
+    }, 500);
+    return () => clearInterval(timer);
+  }, [lastHeartbeat]);
+
+  const showHeartbeatAlert = heartbeatAge > 2000;
 
   const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
     if ((e.target as HTMLElement).closest('button, input')) return; // Ignore if clicking a button or input
@@ -76,6 +93,37 @@ export function PerformanceHUD({ stats }: PerformanceHUDProps) {
     trisRed: 5000000,
   });
   
+  const [latency, setLatency] = useState(-1);
+  const [socketConnected, setSocketConnected] = useState(false);
+
+  useEffect(() => {
+    const socket = io(window.location.origin);
+    
+    socket.on('connect', () => {
+      setSocketConnected(true);
+    });
+
+    socket.on('disconnect', () => {
+      setSocketConnected(false);
+      setLatency(-1);
+    });
+
+    const pingInterval = setInterval(() => {
+      if (socket.connected) {
+        const start = Date.now();
+        socket.emit("client_ping", (serverTime: number) => {
+          const latencyVal = Date.now() - start;
+          setLatency(latencyVal);
+        });
+      }
+    }, 1000);
+
+    return () => {
+      clearInterval(pingInterval);
+      socket.disconnect();
+    };
+  }, []);
+
   // Critical warnings
   const [isCriticalWarning, setIsCriticalWarning] = useState(false);
   const criticalStartTimeRef = useRef<number | null>(null);
@@ -172,12 +220,9 @@ export function PerformanceHUD({ stats }: PerformanceHUDProps) {
     }
   }, [stats, isPaused, thresholds]);
 
-  // Cleanup pending timeouts on unmount
-  useEffect(() => {
-    return () => {
-      if (pendingUpdateRef.current) clearTimeout(pendingUpdateRef.current);
-    };
-  }, []);
+  const filteredLogs = useMemo(() => {
+    return (logs || []).filter(l => l.type === 'error' || l.type === 'system').slice(-3).reverse();
+  }, [logs]);
 
   if (!throttledStats) return null;
 
@@ -297,6 +342,27 @@ export function PerformanceHUD({ stats }: PerformanceHUDProps) {
                 CRITICAL LOAD
               </span>
             ) : 'UE5 Telemetry HUD'}
+
+            {showHeartbeatAlert && (
+              <motion.div 
+                animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 1, repeat: Infinity }}
+                className="flex items-center gap-1.5 px-2 py-0.5 bg-rose-500/20 rounded-full border border-rose-500/30"
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]" />
+                <span className="text-[8px] font-black text-rose-500">DISCONNECTED</span>
+              </motion.div>
+            )}
+
+            {!socketConnected ? (
+              <span className="text-rose-500 flex items-center gap-1 ml-1" title="Socket Disconnected">
+                <AlertTriangle className="w-3 h-3 animate-pulse" /> OFFLINE
+              </span>
+            ) : latency > 2000 ? (
+              <span className="text-amber-500 flex items-center gap-1 ml-1" title={`High Latency: ${latency}ms`}>
+                <AlertTriangle className="w-3 h-3" /> LAG: {latency}ms
+              </span>
+            ) : null}
           </div>
           <div className="flex items-center gap-1">
             <button 
@@ -410,7 +476,38 @@ export function PerformanceHUD({ stats }: PerformanceHUDProps) {
           </div>
         )}
         
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 relative">
+          {/* Heartbeat Loss Overlay */}
+          <AnimatePresence>
+            {showHeartbeatAlert && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 z-20 bg-rose-500/10 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center gap-2 border border-rose-500/40 overflow-hidden"
+              >
+                <motion.div 
+                  animate={{ scale: [1, 1.1, 1], opacity: [0.7, 1, 0.7] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                  className="w-12 h-12 rounded-full bg-rose-500/20 flex items-center justify-center border border-rose-500/30 shadow-[0_0_20px_rgba(244,63,94,0.3)]"
+                >
+                  <AlertTriangle className="w-6 h-6 text-rose-500" />
+                </motion.div>
+                <div className="text-center">
+                  <p className="text-[11px] font-black text-rose-500 uppercase tracking-[0.2em] animate-pulse">Disconnected</p>
+                  <p className="text-[8px] font-bold text-rose-400/70 uppercase">Link Interrupted</p>
+                </div>
+                {/* Visual pulse ring */}
+                <motion.div 
+                  initial={{ scale: 0, opacity: 0.5 }}
+                  animate={{ scale: 2, opacity: 0 }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
+                  className="absolute w-24 h-24 rounded-full border border-rose-500/30"
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Draw Calls Block */}
           <div className={cn("p-2.5 rounded-xl border flex flex-col gap-1 transition-colors pointer-events-auto", getDrawCallBg(throttledStats.drawCalls))}>
             <div className="flex justify-between items-center">
@@ -495,6 +592,50 @@ export function PerformanceHUD({ stats }: PerformanceHUDProps) {
               )}
             </div>
           )}
+
+          {/* Unified Visual Alerts */}
+          <AnimatePresence mode="popLayout">
+            {filteredLogs.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0, scale: 0.95 }}
+                animate={{ opacity: 1, height: 'auto', scale: 1 }}
+                exit={{ opacity: 0, height: 0, scale: 0.95 }}
+                className="mt-2 space-y-2 overflow-hidden"
+              >
+                <div className="flex items-center gap-2 mb-1 px-1">
+                  <ShieldAlert className="w-3 h-3 text-rose-500" />
+                  <span className="text-[9px] font-black text-rose-500 uppercase tracking-[0.2em]">Session Faults Detected</span>
+                </div>
+                {filteredLogs.map((log) => (
+                  <motion.div
+                    key={log.id}
+                    layout
+                    initial={{ x: -10, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    className={cn(
+                      "group relative p-2.5 rounded-xl border flex flex-col gap-1 transition-all",
+                      log.type === 'system' ? "bg-rose-500/10 border-rose-500/30" : "bg-amber-500/10 border-amber-500/30"
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                         <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", log.type === 'system' ? "bg-rose-500" : "bg-amber-500")} />
+                         <span className={cn("text-[9px] font-bold uppercase", log.type === 'system' ? "text-rose-500" : "text-amber-500")}>
+                           {log.type === 'system' ? 'KERNEL_FAULT' : 'RUNTIME_ERROR'}
+                         </span>
+                      </div>
+                      <span className="text-[8px] font-mono text-md-text-muted">
+                        {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-md-text leading-tight font-medium line-clamp-2">
+                       {log.message}
+                    </p>
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </motion.div>
     </AnimatePresence>

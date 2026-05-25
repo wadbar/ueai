@@ -60,7 +60,7 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
       
       addLog('ue', `${camPaths.length} câmeras detectadas.`);
     } catch (err: any) {
-      addLog('error', `FALHA_SCAN_CAMERA: ${err.message}`);
+      addLog('error', `FALHA_SCAN_CAMERA: ${err?.message || err}`);
     } finally {
       setScanning(false);
     }
@@ -104,14 +104,14 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
       });
       addLog('ue', `SEQUENCER: ${action} executado em ${activeSequence.split('.').pop()}`);
     } catch (err: any) {
-      addLog('error', `SEQUENCER_FAULT: ${err.message}`);
+      addLog('error', `SEQUENCER_FAULT: ${err?.message || err}`);
     }
   };
 
   useEffect(() => {
-    scanCameras();
-    scanSequences();
-    syncSelectedAsTarget();
+    scanCameras().catch(() => {});
+    scanSequences().catch(() => {});
+    syncSelectedAsTarget().catch(() => {});
   }, [connection.connected]);
 
   const syncSelectedAsTarget = async () => {
@@ -196,7 +196,7 @@ export const CinematicsManager: React.FC<CinematicsManagerProps> = ({
 
       await executeCommands(commands);
     } catch (err: any) {
-      addLog('error', `FALHA_ORBIT_ENGINE: ${err.message}`);
+      addLog('error', `FALHA_ORBIT_ENGINE: ${err?.message || err}`);
     }
   };
 

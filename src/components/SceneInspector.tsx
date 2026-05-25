@@ -37,7 +37,10 @@ export const SceneInspector: React.FC<SceneInspectorProps> = ({ onRefresh, actor
 
   const handleRefresh = useCallback(() => {
     try {
-      onRefresh();
+      const result = onRefresh() as any;
+      if (result && result.catch) {
+        result.catch((e: any) => console.error('UNHANDLED_EXCEPTION in SceneInspector.refresh:', e));
+      }
     } catch (error) {
       console.error('UNCAUGHT_EXCEPTION in SceneInspector.refresh:', error);
     }
